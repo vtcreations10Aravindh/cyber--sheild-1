@@ -1,0 +1,6 @@
+{
+  "name": "CyberShield Awareness Login Page",
+  "description": "A premium, futuristic, enterprise-grade Security Operations Center (SOC) login experience featuring advanced CSS glassmorphism, dynamic matrix rain, custom glowing circuits, particle animations, and cyber safety tips.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
