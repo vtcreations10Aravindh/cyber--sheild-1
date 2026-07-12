@@ -557,9 +557,13 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[CYBERSHIELD GATEWAY] Security node live on port ${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[CYBERSHIELD GATEWAY] Security node live on port ${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+export default app;
