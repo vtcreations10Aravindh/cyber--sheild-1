@@ -2819,6 +2819,7 @@ const SEARCHABLE_ITEMS = [
   { title: "Help & SOC Documentation", category: "Module", desc: "Get security help, study survival guides, or report incidents", tab: "help-support", keywords: ["help", "support", "faq", "documentation", "guide", "emergency", "report"] },
   { title: "About CyberShield", category: "Module", desc: "Learn about the CyberShield Command Platform, core features, and technology", tab: "about", keywords: ["about", "platform", "version", "info", "credits"] },
   { title: "My Certificates", category: "Module", desc: "View, download, and share your earned cybersecurity credentials", tab: "my-certificates", keywords: ["certificate", "credential", "earned", "achievement", "share", "pdf", "print"] },
+  { title: "Cyber Emergency Response Center", category: "Module", desc: "Interactive emergency containment playbooks, India Gov helpline (1930) & regulatory reporting", tab: "cyber-emergency", keywords: ["emergency", "center", "incident", "playbook", "1930", "india", "helpline", "cybercrime", "wizard", "pdf", "checklist", "banking", "leak", "phishing", "malware", "recovery"] },
 
   // Tools
   { title: "QR Code Safety Scanner", category: "Tool", desc: "Analyze QR code targets, detect banking phishes, or inspect raw contents", tab: "qr-safety", keywords: ["qr", "scanner", "phishing", "safety", "barcode", "code", "decode"] },

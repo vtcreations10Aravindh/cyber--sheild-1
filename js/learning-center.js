@@ -1676,6 +1676,12 @@ window.selectSyllabusIndex = selectSyllabusIndex;
 // 1. Unified Learning Sub-Navigation Router
 // ============================================================================
 window.switchLearningSubtab = function(tabName) {
+  // Clear any existing discussion background interval
+  if (window.cybershield_discussions_interval) {
+    clearInterval(window.cybershield_discussions_interval);
+    window.cybershield_discussions_interval = null;
+  }
+
   const tabs = ['catalog', 'discussions', 'notes', 'certificates'];
   tabs.forEach(t => {
     const btn = document.getElementById(`subtab-btn-${t}`);
@@ -1693,6 +1699,12 @@ window.switchLearningSubtab = function(tabName) {
 
   if (tabName === 'discussions') {
     renderDiscussionsSubview();
+    // Start real-time activity simulation loop
+    window.cybershield_discussions_interval = setInterval(() => {
+      if (typeof window.simulateRealtimeActivity === 'function') {
+        window.simulateRealtimeActivity();
+      }
+    }, 45000); // 45s interval
   } else if (tabName === 'notes') {
     renderNotesSubview();
   } else if (tabName === 'certificates') {
@@ -1918,10 +1930,67 @@ window.exportNotesToTXT = function() {
   window.showNotification('Compilation successful! TXT scratchpad downloaded.', 'success');
 };
 
-
 // ============================================================================
 // 3. Discussion Board (Ask, Reply, Like, Search) Controller
 // ============================================================================
+
+// Modular Discussion board state
+const discussionsState = {
+  activeTab: 'latest', // 'latest' | 'popular' | 'unanswered' | 'solved'
+  activeCategory: 'All', // 'All' | 'Networking' | 'Linux' | etc.
+  searchQuery: '',
+  currentPage: 1,
+  pageSize: 5,
+  lastPostTime: 0,
+  cooldownSeconds: 10,
+  isLoading: false,
+  searchDebounceTimer: null
+};
+
+// Available categories with respective icons and color accents
+const COMMUNITY_CATEGORIES = [
+  { name: 'Networking', icon: 'network', color: 'var(--cyan-bright)' },
+  { name: 'Linux', icon: 'terminal', color: '#10b981' },
+  { name: 'Web Security', icon: 'globe', color: '#3b82f6' },
+  { name: 'OWASP', icon: 'bug', color: '#f59e0b' },
+  { name: 'Cryptography', icon: 'lock', color: '#8b5cf6' },
+  { name: 'Password Security', icon: 'key', color: '#ec4899' },
+  { name: 'Phishing', icon: 'mail', color: '#f43f5e' },
+  { name: 'Malware', icon: 'skull', color: '#ef4444' },
+  { name: 'Digital Forensics', icon: 'search', color: '#06b6d4' },
+  { name: 'General', icon: 'message-square', color: 'var(--text-muted)' }
+];
+
+// Helper to compute human-readable "time ago" relative differences
+window.timeAgo = function(dateStr) {
+  try {
+    const now = new Date();
+    const past = new Date(dateStr);
+    if (isNaN(past.getTime())) return dateStr;
+    
+    const diffMs = now.getTime() - past.getTime();
+    if (diffMs < 0) return 'just now';
+    
+    const diffSecs = Math.floor(diffMs / 1000);
+    if (diffSecs < 60) return 'just now';
+    
+    const diffMins = Math.floor(diffSecs / 60);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return past.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+// Retrieve community list from local secure registry
 window.getDiscussions = function() {
   const data = localStorage.getItem('cybershield_discussions');
   if (data) return JSON.parse(data);
@@ -1929,145 +1998,583 @@ window.getDiscussions = function() {
   const defaults = [
     {
       id: "disc_1",
+      type: "question",
       title: "Subnetting /28 mask splits - host limits?",
+      category: "Networking",
       content: "I am having trouble calculating the exact usable hosts on a Class C network split into /28 CIDR blocks. Is it 14 or 16? Why do we subtract 2?",
       user: "cyber_rookie_99",
       avatar: "🔒",
       likes: 14,
       likedByMe: false,
-      timestamp: "2026-07-09 10:14 AM",
+      pinned: true,
+      solved: true,
+      reported: false,
+      timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       replies: [
         {
           id: "rep_1_1",
           user: "Sowndhar P. (Lead Architect)",
+          avatar: "🛡️",
           content: "It is exactly 14 usable host IPs! A /28 has 4 host bits (32 - 28 = 4), which yields 2^4 = 16 IP addresses in total. However, we must always subtract 2: one for the Network Address (first IP) and one for the Broadcast Address (last IP). Thus, 14 usable host configurations remain.",
           likes: 8,
-          timestamp: "2026-07-09 11:22 AM"
+          helpfulCount: 5,
+          helpfulVotedByMe: false,
+          isSolution: true,
+          timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 3600000).toISOString(),
+          replies: [
+            {
+              id: "rep_sub_1",
+              user: "cyber_rookie_99",
+              content: "Thank you, this makes perfect sense! Solved the module in seconds.",
+              timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 7200000).toISOString()
+            }
+          ]
         }
       ]
     },
     {
       id: "disc_2",
+      type: "question",
       title: "Prepared Statements vs manual SQL filtering?",
+      category: "Web Security",
       content: "Is sanitizing string inputs manually with functions like replace(\"'\", \"''\") enough to prevent all SQL injection attacks, or is using parameterized queries/Prepared Statements strictly mandatory?",
       user: "secure_coder_sarah",
       avatar: "⚡",
       likes: 24,
       likedByMe: false,
-      timestamp: "2026-07-10 02:45 PM",
+      pinned: false,
+      solved: true,
+      reported: false,
+      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       replies: [
         {
           id: "rep_2_1",
           user: "Raghul M. (Staff Admin)",
+          avatar: "🎓",
           content: "Prepared statements are absolutely mandatory! Manual string replacement is extremely error-prone and can be bypassed using alternate character encodings, multi-byte sequences, or injection via non-string parameters (like numeric parameters where quotes aren't even required). Parameterized queries send data separately from SQL execution codes, rendering injection physically impossible.",
           likes: 15,
-          timestamp: "2026-07-10 03:10 PM"
+          helpfulCount: 8,
+          helpfulVotedByMe: false,
+          isSolution: true,
+          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 1500000).toISOString(),
+          replies: []
         }
       ]
+    },
+    {
+      id: "disc_3",
+      type: "post",
+      title: "OWASP Top 10 A03:2021-Injection walkthrough questions",
+      category: "OWASP",
+      content: "Just published a comprehensive local cheat sheet covering XML External Entity (XXE) and Command Injection containment methodologies. Keep your parsers secure by completely disabling external DTD schemas!",
+      user: "owasp_stinger",
+      avatar: "🐝",
+      likes: 12,
+      likedByMe: false,
+      pinned: false,
+      solved: false,
+      reported: false,
+      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+      replies: []
+    },
+    {
+      id: "disc_4",
+      type: "question",
+      title: "Linux SUID binary exploit failing to drop root shell?",
+      category: "Linux",
+      content: "I am trying to run an exploit on a misconfigured SUID binary `/usr/local/bin/custom_backup`. It should drop me into a root shell, but instead, it is exiting with error code 127. Has anyone solved the Linux Privilege Escalation challenge?",
+      user: "tux_fanatic",
+      avatar: "🐧",
+      likes: 18,
+      likedByMe: false,
+      pinned: false,
+      solved: false,
+      reported: false,
+      timestamp: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
+      replies: []
     }
   ];
   localStorage.setItem('cybershield_discussions', JSON.stringify(defaults));
   return defaults;
 };
 
+window.saveDiscussions = function(list) {
+  try {
+    localStorage.setItem('cybershield_discussions', JSON.stringify(list));
+  } catch (e) {
+    console.error('Failed to preserve discussions database.', e);
+  }
+};
+
+// Main function to display discussions subtab view
 window.renderDiscussionsSubview = function() {
   const container = document.getElementById('subview-discussions');
   if (!container) return;
 
-  const discussions = getDiscussions();
-  const searchInput = document.getElementById('discussions-search-input');
-  const searchVal = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  // Render a loading skeleton initially to avoid UI popping
+  if (discussionsState.isLoading) {
+    container.innerHTML = renderLoadingSkeleton();
+    lucide.createIcons();
+    return;
+  }
 
-  const filtered = discussions.filter(d => {
-    return d.title.toLowerCase().includes(searchVal) || 
-           d.content.toLowerCase().includes(searchVal) ||
-           d.user.toLowerCase().includes(searchVal);
+  const discussions = getDiscussions();
+  const activeUser = window.getStudentName();
+  
+  // Fetch active counts for dynamic badges
+  const completedMap = getCompletedBooksMap();
+  const completedCount = Object.keys(completedMap).length;
+  let certCount = 0;
+  Object.values(completedMap).forEach(info => {
+    if (info.quizPassed && info.assessmentPassed) {
+      certCount++;
+    }
+  });
+
+  // Calculate user rank
+  let userRank = "ACADEMY CADET";
+  let rankColor = "var(--text-muted)";
+  if (certCount >= 4) {
+    userRank = "CHIEF SECURITY ARCHITECT";
+    rankColor = "#fbbf24";
+  } else if (certCount >= 2) {
+    userRank = "ELITE SEC-OPS ENGINEER";
+    rankColor = "var(--cyan-bright)";
+  } else if (completedCount >= 1) {
+    userRank = "ACTIVE FIELD OPERATIVE";
+    rankColor = "#10b981";
+  }
+
+  // Pre-filter with search and category tags
+  let filtered = discussions.filter(d => {
+    // Spam/Report filtering - hide from normal list if reported
+    if (d.reported) return false;
+
+    // Category filter
+    if (discussionsState.activeCategory !== 'All' && d.category !== discussionsState.activeCategory) {
+      return false;
+    }
+
+    // Search filter
+    if (discussionsState.searchQuery) {
+      const q = discussionsState.searchQuery.toLowerCase();
+      const matchTitle = d.title.toLowerCase().includes(q);
+      const matchContent = d.content.toLowerCase().includes(q);
+      const matchUser = d.user.toLowerCase().includes(q);
+      const matchCat = d.category.toLowerCase().includes(q);
+      return matchTitle || matchContent || matchUser || matchCat;
+    }
+    return true;
+  });
+
+  // Sort according to active tab filters
+  if (discussionsState.activeTab === 'popular') {
+    filtered.sort((a, b) => {
+      const aWeight = (a.likes || 0) + (a.replies ? a.replies.length * 2 : 0);
+      const bWeight = (b.likes || 0) + (b.replies ? b.replies.length * 2 : 0);
+      return bWeight - aWeight;
+    });
+  } else if (discussionsState.activeTab === 'unanswered') {
+    filtered = filtered.filter(d => !d.replies || d.replies.length === 0);
+    filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  } else if (discussionsState.activeTab === 'solved') {
+    filtered = filtered.filter(d => d.solved === true);
+    filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  } else {
+    // Default/Latest: Pinned items always stay at the absolute top, rest sorted by Date
+    filtered.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }
+
+  // Calculate pagination slice (infinite loading scroll style)
+  const totalThreads = filtered.length;
+  const itemsToShow = discussionsState.currentPage * discussionsState.pageSize;
+  const paginatedThreads = filtered.slice(0, itemsToShow);
+
+  // Compute category counts dynamically
+  const catCountMap = {};
+  discussions.forEach(d => {
+    if (d.reported) return;
+    catCountMap[d.category] = (catCountMap[d.category] || 0) + 1;
   });
 
   container.innerHTML = `
-    <div style="animation: fadeIn 0.2s ease-out;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 20px;">
-        <div>
-          <h2 class="font-display" style="font-size: 18px; font-weight: 700; color: #ffffff;">Intra-Academy Peer Discussion Board</h2>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Collaborate with students and security staff on range objectives and curriculum doubts.</p>
-        </div>
+    <div style="animation: fadeIn 0.25s ease-out; display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start;" class="flex-col md:grid">
+      
+      <!-- LEFT COLUMN: Profile & Category Navigation -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
         
-        <button class="btn-primary" style="font-size:12.5px; padding: 6px 14px; background: rgba(6,182,212,0.15); border-color: var(--cyan-bright);" onclick="openAskQuestionModal()">
-          <i data-lucide="plus" style="width:14px; height:14px; display:inline-block; margin-right:4px; vertical-align:middle;"></i> Ask Question
-        </button>
-      </div>
-
-      <!-- Search -->
-      <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; background: var(--input-bg); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 6px 12px; max-width: 360px;">
-        <i data-lucide="search" style="width: 15px; height: 15px; color: var(--text-muted);"></i>
-        <input type="text" placeholder="Search topics, queries..." id="discussions-search-input" oninput="renderDiscussionsSubview()" value="${searchVal || ''}" style="background: transparent; border: none; outline: none; color: #ffffff; font-size: 13px; width: 100%;" />
-      </div>
-
-      <!-- Threads list -->
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        ${filtered.length === 0 ? `
-          <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-            <i data-lucide="message-square" style="width: 44px; height: 44px; margin: 0 auto 12px; opacity: 0.3;"></i>
-            <p style="font-size: 13px;">No matching discussions found. Initialize a topic above.</p>
+        <!-- Interactive Hacker Profile Card -->
+        <div class="grid-card" style="padding: 20px; background: rgba(3,7,18,0.45); border-color: rgba(6,182,212,0.15); border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div style="position: relative; width: 44px; height: 44px; background: rgba(6,182,212,0.08); border: 1.5px solid var(--cyan-bright); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+              ⚡
+              <div style="position: absolute; bottom: 0; right: 0; width: 11px; height: 11px; background: #10b981; border: 2px solid #030712; border-radius: 50%; box-shadow: 0 0 6px #10b981;" title="Secure Tunnel Online"></div>
+            </div>
+            <div>
+              <div class="font-display" style="font-size: 14px; font-weight: 700; color: #ffffff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 170px;">${activeUser}</div>
+              <div class="font-mono" style="font-size: 10px; color: ${rankColor}; font-weight: 700; letter-spacing: 0.5px; margin-top: 2px;">${userRank}</div>
+            </div>
           </div>
-        ` : filtered.map(th => `
-          <div class="grid-card" style="padding: 16px; background: rgba(3,7,18,0.2); border-color: rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 12px;">
+
+          <!-- Academic Credential Badges -->
+          <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; font-size: 11px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">${th.avatar}</span>
-                <span class="font-mono text-cyan" style="font-size: 11px; font-weight: 700;">${th.user}</span>
-              </div>
-              <span style="font-size: 11px; color: var(--text-muted);">${th.timestamp}</span>
+              <span style="color: var(--text-secondary);">Course Status</span>
+              <span class="font-mono text-cyan" style="font-weight: 600;">${completedCount} Completed</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: var(--text-secondary);">Certificates Earned</span>
+              <span class="font-mono text-amber" style="font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                <i data-lucide="award" style="width: 12px; height: 12px;"></i> ${certCount} Certs
+              </span>
             </div>
             
-            <div>
-              <h3 style="font-size: 15px; font-weight: bold; color: #ffffff; cursor: pointer; display: inline-block;" class="hover:text-cyan" onclick="viewDiscussionThread('${th.id}')">${th.title}</h3>
-              <p style="font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; line-height: 1.45;">${th.content}</p>
-            </div>
-
-            <div style="display: flex; gap: 16px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 10px; margin-top: 4px;">
-              <button style="background: transparent; border: none; color: ${th.likedByMe ? 'var(--cyan-bright)' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;" onclick="likeDiscussionThread('${th.id}')">
-                <i data-lucide="thumbs-up" style="width:13px; height:13px;"></i> Like (${th.likes})
-              </button>
-              <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;" onclick="viewDiscussionThread('${th.id}')">
-                <i data-lucide="message-square" style="width:13px; height:13px;"></i> Replies (${th.replies.length})
-              </button>
+            <div style="margin-top: 6px;">
+              <div style="display: flex; justify-content: space-between; font-size: 9px; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 4px;">
+                <span>SYNC INTEGRITY</span>
+                <span>100% SECURE</span>
+              </div>
+              <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden;">
+                <div style="width: ${completedCount ? Math.min(100, (completedCount / 4) * 100) : 10}%; height: 100%; background: linear-gradient(90deg, var(--cyan-bright) 0%, #10b981 100%);"></div>
+              </div>
             </div>
           </div>
-        `).join('')}
+        </div>
+
+        <!-- Categories Side Filter Navigation -->
+        <div class="grid-card" style="padding: 16px; background: rgba(3,7,18,0.3); border-color: rgba(255,255,255,0.04); border-radius: 8px;">
+          <h3 class="font-mono" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">
+            Range Subject Filters
+          </h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button onclick="window.selectDiscussionsCategory('All')" 
+                    style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: ${discussionsState.activeCategory === 'All' ? 'rgba(6,182,212,0.08)' : 'transparent'}; border: 1px solid ${discussionsState.activeCategory === 'All' ? 'rgba(6,182,212,0.2)' : 'transparent'}; color: ${discussionsState.activeCategory === 'All' ? '#ffffff' : 'var(--text-secondary)'};">
+              <span style="display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="layers" style="width: 14px; height: 14px;"></i> All Subjects
+              </span>
+              <span class="font-mono text-xs text-muted" style="background: rgba(255,255,255,0.04); padding: 1px 6px; border-radius: 4px;">${discussions.filter(d=>!d.reported).length}</span>
+            </button>
+            
+            ${COMMUNITY_CATEGORIES.map(cat => {
+              const active = discussionsState.activeCategory === cat.name;
+              const count = catCountMap[cat.name] || 0;
+              return `
+                <button onclick="window.selectDiscussionsCategory('${cat.name}')" 
+                        style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 7px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; background: ${active ? 'rgba(6,182,212,0.08)' : 'transparent'}; border: 1px solid ${active ? 'rgba(6,182,212,0.2)' : 'transparent'}; color: ${active ? '#ffffff' : 'var(--text-secondary)'};">
+                  <span style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="${cat.icon}" style="width: 13px; height: 13px; color: ${cat.color};"></i> ${cat.name}
+                  </span>
+                  <span class="font-mono text-xs text-muted" style="background: rgba(255,255,255,0.04); padding: 1px 6px; border-radius: 4px;">${count}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Main Feed and Filters -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Header & Action Ribbon -->
+        <div class="grid-card" style="padding: 18px 20px; background: rgba(3,7,18,0.4); border-color: rgba(6,182,212,0.1); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2 class="font-display" style="font-size: 18px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 10px var(--cyan-glow);">
+              <span class="text-cyan">ACADEMY</span> PEER REGISTRY
+            </h2>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Cooperate with active security personnel & students on virtual range exercises.</p>
+          </div>
+          
+          <button class="btn-primary" style="font-size: 12.5px; padding: 7px 14px; background: rgba(6,182,212,0.1); border-color: var(--cyan-bright); border-radius: 6px;" onclick="window.openAskQuestionModal()">
+            <i data-lucide="plus" style="width: 14px; height: 14px; display: inline-block; margin-right: 4px; vertical-align: middle;"></i> Publish Query / Post
+          </button>
+        </div>
+
+        <!-- Filters & Search Toolbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: rgba(3,7,18,0.25); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 10px 16px;">
+          
+          <!-- Filters (Tabs) -->
+          <div style="display: flex; gap: 4px; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 3px; background: rgba(0,0,0,0.2);">
+            ${['latest', 'popular', 'unanswered', 'solved'].map(tab => {
+              const active = discussionsState.activeTab === tab;
+              return `
+                <button onclick="window.selectDiscussionsTab('${tab}')" 
+                        style="padding: 4px 10px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; border-radius: 4px; cursor: pointer; transition: all 0.2s; border: none; background: ${active ? 'var(--cyan-glow)' : 'transparent'}; color: ${active ? '#ffffff' : 'var(--text-muted)'};">
+                  ${tab}
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Dynamic Search Box -->
+          <div style="position: relative; width: 100%; max-width: 280px; display: flex; align-items: center; background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 12px; transition: border-color 0.2s;" class="focus-within:border-cyan">
+            <i data-lucide="search" style="width: 14px; height: 14px; color: var(--text-muted); margin-right: 8px;"></i>
+            <input type="text" placeholder="Search intel database..." id="discussions-search-input" oninput="window.handleSearchInput(this.value)" value="${discussionsState.searchQuery || ''}" style="background: transparent; border: none; outline: none; color: #ffffff; font-size: 12.5px; width: 100%;" />
+            ${discussionsState.searchQuery ? `
+              <button onclick="window.clearSearchQuery()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; font-size: 14px;" class="hover:text-white">×</button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Active Filter Badge Pill Display -->
+        ${(discussionsState.activeCategory !== 'All' || discussionsState.searchQuery) ? `
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase;">Active Filters:</span>
+            ${discussionsState.activeCategory !== 'All' ? `
+              <span class="font-mono" style="font-size: 11px; background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.3); color: var(--cyan-bright); padding: 2px 8px; border-radius: 12px; display: flex; align-items: center; gap: 6px;">
+                Subject: ${discussionsState.activeCategory}
+                <span onclick="window.selectDiscussionsCategory('All')" style="cursor: pointer; font-weight: bold; font-size: 12px; margin-left: 2px;" class="hover:text-white">×</span>
+              </span>
+            ` : ''}
+            ${discussionsState.searchQuery ? `
+              <span class="font-mono" style="font-size: 11px; background: rgba(236,72,153,0.08); border: 1px solid rgba(236,72,153,0.3); color: #ec4899; padding: 2px 8px; border-radius: 12px; display: flex; align-items: center; gap: 6px;">
+                Query: "${discussionsState.searchQuery}"
+                <span onclick="window.clearSearchQuery()" style="cursor: pointer; font-weight: bold; font-size: 12px; margin-left: 2px;" class="hover:text-white">×</span>
+              </span>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        <!-- FEED LIST -->
+        <div style="display: flex; flex-direction: column; gap: 12px;" id="discussions-feed-list-container">
+          ${paginatedThreads.length === 0 ? `
+            <!-- Terminal-styled Empty State -->
+            <div class="grid-card" style="text-align: center; padding: 60px 40px; background: rgba(3,7,18,0.15); border-color: rgba(255,255,255,0.02); border-radius: 8px;">
+              <i data-lucide="shield-alert" style="width: 48px; height: 48px; margin: 0 auto 16px; color: var(--text-muted); opacity: 0.6; stroke-width: 1.5;"></i>
+              <h3 class="font-mono" style="font-size: 13px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">[!] NO ALIGNING REGISTRIES LOCATED</h3>
+              <p style="font-size: 12px; color: var(--text-secondary); max-width: 360px; margin: 0 auto 16px; line-height: 1.5;">Your specified filters returned 0 matches in the peer intelligence network. Clear parameters or initialize a new discussion entry.</p>
+              <button class="btn-secondary" style="font-size: 11.5px; padding: 5px 12px;" onclick="window.resetAllFilters()">Reset Filters</button>
+            </div>
+          ` : paginatedThreads.map(th => {
+            const hasReplies = th.replies && th.replies.length > 0;
+            const categoryData = COMMUNITY_CATEGORIES.find(c => c.name === th.category) || { name: 'General', icon: 'message-square', color: 'var(--text-muted)' };
+            const isOwner = th.user === activeUser || th.user === 'agent_sowndhar_7' || th.user === 'student_ranger_7';
+            
+            return `
+              <div class="grid-card" style="padding: 16px; background: rgba(3,7,18,0.22); border-color: ${th.pinned ? 'rgba(245,158,11,0.25)' : th.solved ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.03)'}; border-radius: 8px; position: relative; transition: border-color 0.2s;" onmouseover="this.style.borderColor='rgba(6,182,212,0.15)'" onmouseout="this.style.borderColor='${th.pinned ? 'rgba(245,158,11,0.25)' : th.solved ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.03)'}'">
+                
+                <!-- Thread Top Meta Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 24px; height: 24px; background: rgba(255,255,255,0.04); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+                      ${th.avatar || '👤'}
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                      <span class="font-mono text-cyan" style="font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                        ${th.user}
+                        <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;" title="Active range online user"></span>
+                      </span>
+                    </div>
+                    <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${window.timeAgo(th.timestamp)}</span>
+                  </div>
+
+                  <!-- Badges -->
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    ${th.pinned ? `
+                      <span class="font-mono" style="font-size: 9px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.5px;">📌 PINNED</span>
+                    ` : ''}
+                    ${th.solved ? `
+                      <span class="font-mono" style="font-size: 9px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.5px;">✓ SOLVED</span>
+                    ` : ''}
+                    <span class="font-mono" style="font-size: 10px; color: ${categoryData.color}; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px;">
+                      <i data-lucide="${categoryData.icon}" style="width: 10px; height: 10px;"></i> ${th.category}
+                    </span>
+                    <span class="font-mono" style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: ${th.type === 'question' ? 'var(--cyan-bright)' : '#c084fc'}; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.03);">
+                      ${th.type || 'post'}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Thread Title & Content -->
+                <div style="margin-bottom: 12px; cursor: pointer;" onclick="window.viewDiscussionThread('${th.id}')">
+                  <h3 class="hover:text-cyan font-display" style="font-size: 14.5px; font-weight: 700; color: #ffffff; line-height: 1.35; margin-bottom: 4px;">
+                    ${th.title}
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.45; word-break: break-word;">
+                    ${th.content.length > 180 ? th.content.substring(0, 180) + '...' : th.content}
+                  </p>
+                </div>
+
+                <!-- Interactive Footer Elements -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 10px; margin-top: 4px; flex-wrap: wrap; gap: 8px;">
+                  <div style="display: flex; gap: 14px; align-items: center;">
+                    <button style="background: transparent; border: none; color: ${th.likedByMe ? 'var(--cyan-bright)' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11.5px;" onclick="window.likeDiscussionThread('${th.id}')" class="hover:text-cyan">
+                      <i data-lucide="thumbs-up" style="width: 12.5px; height: 12.5px; fill: ${th.likedByMe ? 'var(--cyan-glow)' : 'transparent'};"></i> Like (${th.likes || 0})
+                    </button>
+                    <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11.5px;" onclick="window.viewDiscussionThread('${th.id}')" class="hover:text-cyan">
+                      <i data-lucide="message-square" style="width: 12.5px; height: 12.5px;"></i> Replies (${th.replies ? th.replies.length : 0})
+                    </button>
+                    <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11.5px;" onclick="window.reportDiscussionThread('${th.id}')" class="hover:text-rose" title="Report this thread to SOC Moderation">
+                      <i data-lucide="flag" style="width: 11.5px; height: 11.5px;"></i> Report
+                    </button>
+                  </div>
+
+                  <!-- Owner modification buttons -->
+                  ${isOwner ? `
+                    <div style="display: flex; gap: 8px;">
+                      <button onclick="window.openEditThreadModal('${th.id}')" style="background: transparent; border: none; color: var(--cyan-bright); cursor: pointer; font-size: 11px; font-family: var(--font-mono);" class="hover:underline">EDIT</button>
+                      <button onclick="window.deleteDiscussionThread('${th.id}')" style="background: transparent; border: none; color: var(--rose-bright); cursor: pointer; font-size: 11px; font-family: var(--font-mono);" class="hover:underline">DELETE</button>
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Pagination & Load More Container -->
+        ${totalThreads > itemsToShow ? `
+          <div style="text-align: center; margin-top: 10px;">
+            <button class="btn-secondary" style="width: 100%; border-style: dashed; padding: 10px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 1px;" onclick="window.loadMoreDiscussions()">
+              <i data-lucide="chevrons-down" style="width: 14px; height: 14px; display: inline-block; margin-right: 4px; vertical-align: middle;"></i> Load More Active Registries...
+            </button>
+          </div>
+        ` : ''}
       </div>
     </div>
+
+    <!-- Active Thread ID State Tracker Hidden Element -->
+    <input type="hidden" id="active-thread-id-tracker" value="" />
   `;
+
   lucide.createIcons();
 };
 
+// Pagination incremental trigger
+window.loadMoreDiscussions = function() {
+  discussionsState.currentPage++;
+  
+  // Show a mini loading overlay effect on the feed container
+  const feed = document.getElementById('discussions-feed-list-container');
+  if (feed) {
+    const loadingPill = document.createElement('div');
+    loadingPill.className = 'font-mono text-cyan text-center';
+    loadingPill.style.cssText = 'padding: 12px; font-size: 11px;';
+    loadingPill.innerHTML = '⚡ QUERYING ADDITIONAL SECTOR RECORDS...';
+    feed.appendChild(loadingPill);
+  }
+
+  setTimeout(() => {
+    window.renderDiscussionsSubview();
+  }, 450); // 450ms simulated decryption
+};
+
+// Filter tab dispatcher
+window.selectDiscussionsTab = function(tab) {
+  discussionsState.activeTab = tab;
+  discussionsState.currentPage = 1; // reset page
+  discussionsState.isLoading = true;
+  window.renderDiscussionsSubview();
+  setTimeout(() => {
+    discussionsState.isLoading = false;
+    window.renderDiscussionsSubview();
+  }, 350);
+};
+
+// Filter category dispatcher
+window.selectDiscussionsCategory = function(catName) {
+  discussionsState.activeCategory = catName;
+  discussionsState.currentPage = 1;
+  discussionsState.isLoading = true;
+  window.renderDiscussionsSubview();
+  setTimeout(() => {
+    discussionsState.isLoading = false;
+    window.renderDiscussionsSubview();
+  }, 300);
+};
+
+// Reset all search and category filters
+window.resetAllFilters = function() {
+  discussionsState.activeCategory = 'All';
+  discussionsState.activeTab = 'latest';
+  discussionsState.searchQuery = '';
+  discussionsState.currentPage = 1;
+  window.renderDiscussionsSubview();
+};
+
+// Debounced input search handler
+window.handleSearchInput = function(val) {
+  if (discussionsState.searchDebounceTimer) {
+    clearTimeout(discussionsState.searchDebounceTimer);
+  }
+
+  discussionsState.searchDebounceTimer = setTimeout(() => {
+    discussionsState.searchQuery = val.trim();
+    discussionsState.currentPage = 1;
+    window.renderDiscussionsSubview();
+  }, 250); // 250ms debounce
+};
+
+// Clear search input directly
+window.clearSearchQuery = function() {
+  discussionsState.searchQuery = '';
+  const searchInput = document.getElementById('discussions-search-input');
+  if (searchInput) searchInput.value = '';
+  window.renderDiscussionsSubview();
+};
+
+// Ask Question Dialog Modal
 window.openAskQuestionModal = function() {
   const container = document.getElementById('subview-discussions');
   if (!container) return;
 
   container.innerHTML = `
-    <div class="grid-card" style="padding: 24px; animation: fadeIn 0.2s ease-out; max-width: 580px; margin: 0 auto; background: rgba(3,7,18,0.5); border-color: rgba(255,255,255,0.06);">
-      <h2 class="font-display" style="font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 16px;">
-        Submit Query Topic
-      </h2>
+    <div class="grid-card" style="padding: 24px; animation: fadeIn 0.2s ease-out; max-width: 600px; margin: 0 auto; background: rgba(3,7,18,0.55); border-color: rgba(6,182,212,0.25); border-radius: 8px;">
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; margin-bottom: 18px;">
+        <h2 class="font-display text-shadow" style="font-size: 16.5px; font-weight: 700; color: #ffffff;">
+          <span style="color: var(--cyan-bright);">INTEL REGISTRY ENTRY:</span> PUBLISH TOPIC
+        </h2>
+        <button class="font-mono text-muted hover:text-white" onclick="window.renderDiscussionsSubview()" style="background: transparent; border: none; font-size: 20px; cursor: pointer;">×</button>
+      </div>
       
       <div style="display: flex; flex-direction: column; gap: 14px;">
+        
+        <!-- Type selection -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <button id="post-type-question" onclick="window.selectPostType('question')" class="btn-primary" style="font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; background: rgba(6,182,212,0.15); border-color: var(--cyan-bright); text-align: center; cursor: pointer;">
+            ❓ ASK QUESTION / CHALLENGE
+          </button>
+          <button id="post-type-post" onclick="window.selectPostType('post')" class="btn-secondary" style="font-family: var(--font-mono); font-size: 11px; padding: 8px 12px; text-align: center; cursor: pointer; background: transparent; border-color: rgba(255,255,255,0.1);">
+            📝 GENERAL ACADEMIC POST
+          </button>
+          <input type="hidden" id="disc-type-input" value="question" />
+        </div>
+
+        <!-- Subject selection -->
         <div>
-          <label style="display: block; font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Query Title</label>
+          <label class="font-mono" style="display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">Topic Range Subject</label>
+          <select id="disc-category-input" style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px; width: 100%; outline: none;">
+            ${COMMUNITY_CATEGORIES.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Query Title -->
+        <div>
+          <label class="font-mono" style="display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">Intel Subject Title</label>
           <input type="text" id="disc-title-input" placeholder="e.g. SUID privilege escalation script error..."
-                 style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px; width: 100%; outline: none;" />
+                 style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px; width: 100%; outline: none;" 
+                 onfocus="this.style.borderColor='var(--cyan-bright)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'" />
         </div>
         
+        <!-- Detailed Content -->
         <div>
-          <label style="display: block; font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Detailed Payload Explanation</label>
-          <textarea id="disc-content-input" placeholder="State your command logs, screenshots links, or concepts questions clearly..." rows="6"
-                    style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px; width: 100%; font-family: var(--font-sans); outline: none; resize: vertical; line-height: 1.5;"></textarea>
+          <label class="font-mono" style="display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">Query Payload / Detailed Explanation</label>
+          <textarea id="disc-content-input" placeholder="Supply your command logs, network packets, or ranges query clearly..." rows="5"
+                    style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 12.5px; width: 100%; font-family: var(--font-sans); outline: none; resize: vertical; line-height: 1.5;"
+                    onfocus="this.style.borderColor='var(--cyan-bright)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"></textarea>
         </div>
+
+        <!-- Active validations preview feedback indicators -->
+        <div id="ask-modal-moderation-warning" style="display: none; padding: 10px; background: rgba(239,68,68,0.08); border: 1.5px solid #ef4444; border-radius: 6px; font-size: 11.5px; color: #fca5a5; font-family: var(--font-sans); line-height: 1.4;"></div>
         
-        <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
-          <button class="btn-secondary" onclick="renderDiscussionsSubview()" style="font-size: 12.5px; padding: 6px 14px;">Cancel</button>
-          <button class="btn-primary" onclick="submitDiscussionThread()" style="font-size: 12.5px; padding: 6px 16px;">
-            <i data-lucide="send" style="width:14px; height:14px; display:inline-block; margin-right:4px; vertical-align:middle;"></i> Publish Thread
+        <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 4px;">
+          <button class="btn-secondary" onclick="window.renderDiscussionsSubview()" style="font-size: 12.5px; padding: 6px 14px;">Cancel</button>
+          <button class="btn-primary" id="disc-submit-btn" onclick="window.submitDiscussionThread()" style="font-size: 12.5px; padding: 6px 16px; background: rgba(6,182,212,0.15); border-color: var(--cyan-bright);">
+            <i data-lucide="send" style="width: 13px; height: 13px; display: inline-block; margin-right: 4px; vertical-align: middle;"></i> Publish Intel Entry
           </button>
         </div>
       </div>
@@ -2076,139 +2583,826 @@ window.openAskQuestionModal = function() {
   lucide.createIcons();
 };
 
-window.submitDiscussionThread = function() {
-  const titleVal = document.getElementById('disc-title-input')?.value.trim() || '';
-  const contentVal = document.getElementById('disc-content-input')?.value.trim() || '';
+// Form Post Type dispatcher helper
+window.selectPostType = function(type) {
+  const hiddenInput = document.getElementById('disc-type-input');
+  if (!hiddenInput) return;
+  hiddenInput.value = type;
+
+  const btnQ = document.getElementById('post-type-question');
+  const btnP = document.getElementById('post-type-post');
+
+  if (type === 'question') {
+    btnQ.className = 'btn-primary';
+    btnQ.style.borderColor = 'var(--cyan-bright)';
+    btnQ.style.background = 'rgba(6,182,212,0.15)';
+    
+    btnP.className = 'btn-secondary';
+    btnP.style.borderColor = 'rgba(255,255,255,0.1)';
+    btnP.style.background = 'transparent';
+  } else {
+    btnP.className = 'btn-primary';
+    btnP.style.borderColor = 'var(--cyan-bright)';
+    btnP.style.background = 'rgba(6,182,212,0.15)';
+    
+    btnQ.className = 'btn-secondary';
+    btnQ.style.borderColor = 'rgba(255,255,255,0.1)';
+    btnQ.style.background = 'transparent';
+  }
+};
+
+// Edit Existing Thread Dialog
+window.openEditThreadModal = function(threadId) {
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (!th) return;
+
+  const container = document.getElementById('subview-discussions');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="grid-card" style="padding: 24px; animation: fadeIn 0.2s ease-out; max-width: 600px; margin: 0 auto; background: rgba(3,7,18,0.55); border-color: rgba(6,182,212,0.25); border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px; margin-bottom: 18px;">
+        <h2 class="font-display text-shadow" style="font-size: 16.5px; font-weight: 700; color: #ffffff;">
+          <span style="color: var(--cyan-bright);">EDIT REGISTERED THREAD</span>
+        </h2>
+        <button class="font-mono text-muted hover:text-white" onclick="window.renderDiscussionsSubview()" style="background: transparent; border: none; font-size: 20px; cursor: pointer;">×</button>
+      </div>
+      
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div>
+          <label class="font-mono" style="display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">Intel Subject Title</label>
+          <input type="text" id="edit-disc-title" value="${th.title}"
+                 style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 13px; width: 100%; outline: none;" />
+        </div>
+        
+        <div>
+          <label class="font-mono" style="display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px;">Detailed Payload Content</label>
+          <textarea id="edit-disc-content" rows="6"
+                    style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 12.5px; width: 100%; font-family: var(--font-sans); outline: none; resize: vertical; line-height: 1.5;">${th.content}</textarea>
+        </div>
+
+        <div id="edit-modal-moderation-warning" style="display: none; padding: 10px; background: rgba(239,68,68,0.08); border: 1.5px solid #ef4444; border-radius: 6px; font-size: 11.5px; color: #fca5a5; line-height: 1.4;"></div>
+        
+        <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+          <button class="btn-secondary" onclick="window.renderDiscussionsSubview()" style="font-size: 12.5px; padding: 6px 14px;">Cancel</button>
+          <button class="btn-primary" onclick="window.submitEditThread('${th.id}')" style="font-size: 12.5px; padding: 6px 16px;">
+            <i data-lucide="check" style="width: 13px; height: 13px; display: inline-block; margin-right: 4px; vertical-align: middle;"></i> Save Edits
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+};
+
+// Handle submission of thread edits
+window.submitEditThread = function(threadId) {
+  const titleInput = document.getElementById('edit-disc-title');
+  const contentInput = document.getElementById('edit-disc-content');
+  const warningDiv = document.getElementById('edit-modal-moderation-warning');
+
+  const titleVal = titleInput ? titleInput.value.trim() : '';
+  const contentVal = contentInput ? contentInput.value.trim() : '';
 
   if (!titleVal || !contentVal) {
-    window.showNotification('Operation Aborted: Threads require a title and detail message.', 'error');
+    window.showNotification('Operation Aborted: Entries require a title and body content.', 'error');
+    return;
+  }
+
+  // Moderation: Offensive Content Check
+  const blacklist = ['fuck', 'shit', 'bitch', 'asshole', 'crap', 'bastard', 'steal account', 'steal credit card', 'hack fb', 'leak database'];
+  const unifiedText = (titleVal + ' ' + contentVal).toLowerCase();
+  const matchedSpam = blacklist.some(term => unifiedText.includes(term));
+
+  if (matchedSpam) {
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>SOC Security Sandbox Violation:</b> Offensive content or illegal activity queries detected in request parameters. System edits locked. Please maintain standard academic code-of-conduct rules in the cyber range.`;
+    }
+    window.showNotification('Topic rejected by CyberShield automated firewall.', 'error');
     return;
   }
 
   const list = getDiscussions();
-  const timeStr = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-  list.push({
-    id: "disc_" + Date.now(),
-    title: titleVal,
-    content: contentVal,
-    user: "agent_sowndhar_7",
-    avatar: "🤖",
-    likes: 0,
-    likedByMe: false,
-    timestamp: timeStr,
-    replies: []
-  });
-
-  localStorage.setItem('cybershield_discussions', JSON.stringify(list));
-  window.showNotification('Topic published successfully on the Academy board.', 'success');
-  renderDiscussionsSubview();
+  const idx = list.findIndex(d => d.id === threadId);
+  if (idx !== -1) {
+    list[idx].title = titleVal;
+    list[idx].content = contentVal;
+    list[idx].timestamp = new Date().toISOString(); // update timestamp on edit
+    saveDiscussions(list);
+    window.showNotification('Intel registry entry updated successfully.', 'success');
+    window.renderDiscussionsSubview();
+  }
 };
 
+// Publish a completely new thread entry
+window.submitDiscussionThread = function() {
+  const titleInput = document.getElementById('disc-title-input');
+  const contentInput = document.getElementById('disc-content-input');
+  const typeInput = document.getElementById('disc-type-input');
+  const categoryInput = document.getElementById('disc-category-input');
+  const warningDiv = document.getElementById('ask-modal-moderation-warning');
+
+  const titleVal = titleInput ? titleInput.value.trim() : '';
+  const contentVal = contentInput ? contentInput.value.trim() : '';
+  const typeVal = typeInput ? typeInput.value : 'question';
+  const categoryVal = categoryInput ? categoryInput.value : 'General';
+
+  if (!titleVal || !contentVal) {
+    window.showNotification('Operation Aborted: Entries require a title and details message.', 'error');
+    return;
+  }
+
+  // Performance / Cooldown / Rate Limiting Check
+  const timeSinceLastPost = Date.now() - discussionsState.lastPostTime;
+  if (timeSinceLastPost < discussionsState.cooldownSeconds * 1000) {
+    const remainingSecs = Math.ceil((discussionsState.cooldownSeconds * 1000 - timeSinceLastPost) / 1000);
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>SOC System Rate Limit:</b> Anti-Spam rate-limiting filter is active. Please cooldown for <b>${remainingSecs}s</b> before transmitting more payloads to the registry feed.`;
+    }
+    window.showNotification('Transmission Throttled by CyberShield SOC Firewall.', 'error');
+    return;
+  }
+
+  // Moderation: Offensive Content Check
+  const blacklist = ['fuck', 'shit', 'bitch', 'asshole', 'crap', 'bastard', 'steal account', 'steal credit card', 'hack fb', 'leak database'];
+  const unifiedText = (titleVal + ' ' + contentVal).toLowerCase();
+  const matchedOffensive = blacklist.some(term => unifiedText.includes(term));
+
+  if (matchedOffensive) {
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>SOC Security Sandbox Violation:</b> Offensive content or illegal activity queries detected in request parameters. System edits locked. Please maintain standard academic code-of-conduct rules in the cyber range.`;
+    }
+    window.showNotification('Topic rejected by CyberShield automated firewall.', 'error');
+    return;
+  }
+
+  const list = getDiscussions();
+
+  // Moderation: Duplicate Question Detection
+  const isDuplicate = list.some(th => th.title.toLowerCase() === titleVal.toLowerCase());
+  if (isDuplicate) {
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>Spam Prevention System:</b> A matching topic title was detected already within the registry records. Please reply to the existing topic or modify your title parameters.`;
+    }
+    window.showNotification('Duplicate topic detected.', 'error');
+    return;
+  }
+
+  const activeUser = window.getStudentName();
+  const customAvatar = categoryVal === 'Linux' ? '🐧' : categoryVal === 'Cryptography' ? '🔑' : categoryVal === 'Web Security' ? '🌐' : '👾';
+
+  const newThread = {
+    id: "disc_" + Date.now(),
+    type: typeVal,
+    title: titleVal,
+    category: categoryVal,
+    content: contentVal,
+    user: activeUser,
+    avatar: customAvatar,
+    likes: 0,
+    likedByMe: false,
+    timestamp: new Date().toISOString(),
+    pinned: false,
+    solved: false,
+    reported: false,
+    replies: []
+  };
+
+  list.unshift(newThread);
+  saveDiscussions(list);
+
+  // Update cooldown state
+  discussionsState.lastPostTime = Date.now();
+  window.showNotification('Topic published successfully on the Academy board.', 'success');
+  
+  // Auto-Moderation: Bot Auto Response simulation if certain trigger keywords are detected
+  if (unifiedText.includes('ransomware') || unifiedText.includes('virus') || unifiedText.includes('malware')) {
+    setTimeout(() => {
+      const updatedList = getDiscussions();
+      const targetThread = updatedList.find(d => d.id === newThread.id);
+      if (targetThread) {
+        targetThread.replies.push({
+          id: "rep_bot_" + Date.now(),
+          user: "SOC_AUTO_MOD (Security Bot)",
+          avatar: "🤖",
+          content: "⚠️ <b>System Advisory:</b> This thread mentions active software threat structures (Malware/Virus/Ransomware). Please be advised that execution of hostile binaries must strictly take place inside completely isolated sandbox containers. Do not upload actual credentials, keys, or proprietary malware headers to the public Academy forum.",
+          likes: 5,
+          helpfulCount: 2,
+          timestamp: new Date().toISOString(),
+          replies: []
+        });
+        saveDiscussions(updatedList);
+        window.showNotification('Auto-moderation advisory attached to your malware thread.', 'info');
+      }
+    }, 4000); // 4 seconds auto response trigger delay
+  }
+
+  window.renderDiscussionsSubview();
+};
+
+// Delete a thread
+window.deleteDiscussionThread = function(threadId) {
+  if (!confirm('Are you absolutely sure you want to shred this thread entry from the academic registry? This operation is irreversible.')) return;
+  
+  const list = getDiscussions();
+  const filtered = list.filter(d => d.id !== threadId);
+  saveDiscussions(filtered);
+  window.showNotification('Thread shredded from local academy cache.', 'success');
+  window.renderDiscussionsSubview();
+};
+
+// Toggle helpful vote on a reply
+window.helpfulVoteReply = function(threadId, replyId) {
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th) {
+    const reply = th.replies.find(r => r.id === replyId);
+    if (reply) {
+      if (reply.helpfulVotedByMe) {
+        reply.helpfulCount = Math.max(0, (reply.helpfulCount || 0) - 1);
+        reply.helpfulVotedByMe = false;
+      } else {
+        reply.helpfulCount = (reply.helpfulCount || 0) + 1;
+        reply.helpfulVotedByMe = true;
+      }
+      saveDiscussions(list);
+      window.viewDiscussionThread(threadId);
+    }
+  }
+};
+
+// Toggle solved status of a thread
+window.markThreadSolved = function(threadId) {
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th) {
+    th.solved = !th.solved;
+    saveDiscussions(list);
+    window.showNotification(th.solved ? 'Thread marked as resolved successfully!' : 'Thread reopened for peer contributions.', 'success');
+    window.viewDiscussionThread(threadId);
+  }
+};
+
+// Toggle liking a thread
 window.likeDiscussionThread = function(threadId) {
   const list = getDiscussions();
   const th = list.find(d => d.id === threadId);
   if (th) {
     if (th.likedByMe) {
-      th.likes--;
+      th.likes = Math.max(0, (th.likes || 0) - 1);
       th.likedByMe = false;
     } else {
-      th.likes++;
+      th.likes = (th.likes || 0) + 1;
       th.likedByMe = true;
     }
-    localStorage.setItem('cybershield_discussions', JSON.stringify(list));
-    renderDiscussionsSubview();
+    saveDiscussions(list);
+    
+    // Check if we are currently looking at details view vs the main feed list
+    const activeDetailContainer = document.getElementById('active-thread-id-tracker');
+    if (activeDetailContainer && activeDetailContainer.value === threadId) {
+      window.viewDiscussionThread(threadId);
+    } else {
+      window.renderDiscussionsSubview();
+    }
   }
 };
 
+// Flag thread as reported
+window.reportDiscussionThread = function(threadId) {
+  if (!confirm('Are you sure you want to report this thread to SOC Moderation Team for potential policy violations?')) return;
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th) {
+    th.reported = true;
+    saveDiscussions(list);
+    window.showNotification('Topic reported to SOC Security Team. Review pending.', 'success');
+    
+    // Redirect back to main feed list
+    window.renderDiscussionsSubview();
+  }
+};
+
+// View detailed single-thread view page
 window.viewDiscussionThread = function(threadId) {
   const container = document.getElementById('subview-discussions');
   if (!container) return;
 
   const list = getDiscussions();
   const th = list.find(d => d.id === threadId);
-  if (!th) return;
+  if (!th) {
+    window.showNotification('Intel entry has been deleted or archived.', 'error');
+    window.renderDiscussionsSubview();
+    return;
+  }
+
+  const activeUser = window.getStudentName();
+  const isOwner = th.user === activeUser || th.user === 'agent_sowndhar_7' || th.user === 'student_ranger_7';
+
+  // Toggle solves visibility only for questions
+  const showMarkSolved = isOwner && th.type === 'question';
 
   container.innerHTML = `
-    <div style="animation: fadeIn 0.2s ease-out; max-width: 700px; margin: 0 auto;">
-      <button class="btn-secondary" onclick="renderDiscussionsSubview()" style="margin-bottom: 16px; font-size:12px; padding: 4px 12px; display:flex; align-items:center; gap:6px;">
-        <i data-lucide="arrow-left" style="width:12px; height:12px;"></i> Back to Threads
-      </button>
+    <div style="animation: fadeIn 0.2s ease-out; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+      
+      <!-- Back button and title -->
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 12px;">
+        <button class="btn-secondary" onclick="window.renderDiscussionsSubview()" style="font-size:12px; padding: 4px 12px; display:flex; align-items:center; gap:6px;">
+          <i data-lucide="arrow-left" style="width:12px; height:12px;"></i> Back to Feed
+        </button>
+        <span class="font-mono text-muted" style="font-size: 10px;">ID: ${th.id}</span>
+      </div>
 
-      <!-- Main OP Thread -->
-      <div class="grid-card" style="padding: 20px; background: rgba(3,7,18,0.4); border-color: rgba(6,182,212,0.1); margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <!-- Main OP Thread Body Card -->
+      <div class="grid-card" style="padding: 24px; background: rgba(3,7,18,0.45); border-color: ${th.solved ? 'rgba(16,185,129,0.3)' : 'rgba(6,182,212,0.15)'}; border-radius: 8px;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 16px;">${th.avatar}</span>
-            <span class="font-mono text-cyan" style="font-size: 12px; font-weight: 700;">${th.user}</span>
-          </div>
-          <span style="font-size: 11px; color: var(--text-muted);">${th.timestamp}</span>
-        </div>
-        
-        <h3 style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 10px;">${th.title}</h3>
-        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap;">${th.content}</p>
-        
-        <div style="display: flex; gap: 16px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 10px; margin-top: 14px;">
-          <button style="background: transparent; border: none; color: ${th.likedByMe ? 'var(--cyan-bright)' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;" onclick="likeDiscussionThread('${th.id}'); viewDiscussionThread('${th.id}')">
-            <i data-lucide="thumbs-up" style="width:13px; height:13px;"></i> Like (${th.likes})
-          </button>
-        </div>
-      </div>
-
-      <!-- Replies Header -->
-      <h4 class="font-mono" style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">Thread Replies (${th.replies.length})</h4>
-
-      <!-- Replies list -->
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
-        ${th.replies.length === 0 ? `
-          <div style="text-align: center; padding: 20px; color: var(--text-muted); font-size:12.5px;">No answers posted. Add your response below!</div>
-        ` : th.replies.map(r => `
-          <div class="grid-card" style="padding: 14px; background: rgba(3,7,18,0.25); border-color: rgba(255,255,255,0.03);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span class="font-mono text-cyan" style="font-size: 11px; font-weight: 700;">${r.user}</span>
-              <span style="font-size: 10px; color: var(--text-muted);">${r.timestamp}</span>
+            <div style="width: 28px; height: 28px; background: rgba(255,255,255,0.04); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+              ${th.avatar || '👤'}
             </div>
-            <p style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap;">${r.content}</p>
+            <div style="display: flex; flex-direction: column;">
+              <span class="font-mono text-cyan" style="font-size: 11.5px; font-weight: 700;">
+                ${th.user}
+                <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
+              </span>
+            </div>
+            <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${window.timeAgo(th.timestamp)}</span>
           </div>
-        `).join('')}
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            ${th.pinned ? `<span class="font-mono" style="font-size: 9px; font-weight: 700; color: #fbbf24; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); padding: 1px 6px; border-radius: 4px;">📌 PINNED</span>` : ''}
+            ${th.solved ? `<span class="font-mono" style="font-size: 9px; font-weight: 700; color: #10b981; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); padding: 1px 6px; border-radius: 4px;">✓ RESOLVED</span>` : ''}
+            <span class="font-mono" style="font-size: 10px; color: var(--cyan-bright); background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px;">${th.category}</span>
+          </div>
+        </div>
+        
+        <h3 class="font-display text-shadow" style="font-size: 16.5px; font-weight: 700; color: #ffffff; line-height: 1.35; margin-bottom: 12px;">${th.title}</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.55; white-space: pre-wrap; word-break: break-word;">${th.content}</p>
+        
+        <!-- OP Controls Footer -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; margin-top: 18px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <button style="background: transparent; border: none; color: ${th.likedByMe ? 'var(--cyan-bright)' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11.5px;" onclick="window.likeDiscussionThread('${th.id}')" class="hover:text-cyan">
+              <i data-lucide="thumbs-up" style="width:13px; height:13px; fill: ${th.likedByMe ? 'var(--cyan-glow)' : 'transparent'};"></i> Like (${th.likes || 0})
+            </button>
+            <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11.5px;" onclick="window.reportDiscussionThread('${th.id}')" class="hover:text-rose">
+              <i data-lucide="flag" style="width: 12px; height: 12px;"></i> Report
+            </button>
+          </div>
+
+          <!-- Mark solved / Editing capabilities -->
+          <div style="display: flex; gap: 8px; align-items: center;">
+            ${showMarkSolved ? `
+              <button onclick="window.markThreadSolved('${th.id}')" class="btn-secondary" style="font-size: 11px; padding: 4px 10px; border-color: ${th.solved ? 'rgba(251,191,36,0.3)' : 'rgba(16,185,129,0.3)'}; font-family: var(--font-mono); font-weight: 600; color: ${th.solved ? '#fbbf24' : '#10b981'}; background: ${th.solved ? 'rgba(251,191,36,0.05)' : 'rgba(16,185,129,0.05)'};">
+                ${th.solved ? '↩ REOPEN QUESTION' : '✓ MARK AS SOLVED'}
+              </button>
+            ` : ''}
+            
+            ${isOwner ? `
+              <button onclick="window.openEditThreadModal('${th.id}')" style="background: transparent; border: none; color: var(--cyan-bright); cursor: pointer; font-size: 11px; font-family: var(--font-mono);" class="hover:underline">EDIT</button>
+              <button onclick="window.deleteDiscussionThread('${th.id}')" style="background: transparent; border: none; color: var(--rose-bright); cursor: pointer; font-size: 11px; font-family: var(--font-mono);" class="hover:underline">DELETE</button>
+            ` : ''}
+          </div>
+        </div>
       </div>
 
-      <!-- Add Reply form -->
-      <div class="grid-card" style="padding: 16px; background: rgba(3,7,18,0.3); border-color: rgba(255,255,255,0.05);">
-        <h4 class="font-mono" style="font-size: 11px; font-weight: 700; color: var(--cyan-bright); text-transform: uppercase; margin-bottom: 10px;">Post Reply</h4>
-        <textarea id="reply-content-input" placeholder="Type your academic response..." rows="3"
-                  style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 8px 12px; color: #ffffff; font-size: 12.5px; width: 100%; font-family: var(--font-sans); outline: none; resize: vertical; line-height: 1.45; margin-bottom: 12px;"></textarea>
+      <!-- Replies Subtitle Feed -->
+      <h4 class="font-mono" style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-top: 8px; letter-spacing: 0.5px;">
+        TRANSCRIPT RESPONSES (${th.replies ? th.replies.length : 0})
+      </h4>
+
+      <!-- Replies List Container -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        ${(!th.replies || th.replies.length === 0) ? `
+          <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 12.5px;" class="grid-card">
+            No peer answers registered. Deploy your feedback response payload below.
+          </div>
+        ` : th.replies.map(r => {
+          const isReplyOwner = r.user === activeUser || r.user === 'agent_sowndhar_7' || r.user === 'student_ranger_7';
+          const hasHelpfulVoted = r.helpfulVotedByMe;
+          const showMarkAsSolution = isOwner && th.type === 'question' && !r.isSolution;
+
+          return `
+            <div class="grid-card" style="padding: 16px; background: ${r.isSolution ? 'rgba(16,185,129,0.03)' : 'rgba(3,7,18,0.2)'}; border-color: ${r.isSolution ? 'rgba(16,185,129,0.35)' : 'rgba(255,255,255,0.03)'}; border-radius: 8px; position: relative;">
+              
+              ${r.isSolution ? `
+                <div style="position: absolute; top: -1px; right: 20px; font-family: var(--font-mono); font-size: 8.5px; font-weight: bold; background: #10b981; color: #020617; padding: 2px 8px; border-radius: 0 0 4px 4px; letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(16,185,129,0.3);">
+                  VERIFIED SOLUTION
+                </div>
+              ` : ''}
+
+              <!-- Reply Header -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 14px;">${r.avatar || '🎓'}</span>
+                  <span class="font-mono text-cyan" style="font-size: 11px; font-weight: 700;">${r.user}</span>
+                  <span style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${window.timeAgo(r.timestamp)}</span>
+                </div>
+              </div>
+
+              <!-- Reply Body -->
+              <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; word-break: break-word;">${r.content}</p>
+
+              <!-- Interactive Controls for Reply -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                  
+                  <!-- Helpful upvoting -->
+                  <button style="background: transparent; border: none; color: ${hasHelpfulVoted ? '#10b981' : 'var(--text-muted)'}; cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 11px;" onclick="window.helpfulVoteReply('${th.id}', '${r.id}')" class="hover:text-cyan">
+                    <i data-lucide="check-check" style="width: 12.5px; height: 12.5px;"></i> Helpful (${r.helpfulCount || 0})
+                  </button>
+
+                  <!-- Nested reply toggler -->
+                  <button style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px; font-size: 11px;" onclick="window.toggleNestedReplyForm('${r.id}')" class="hover:text-cyan">
+                    <i data-lucide="corner-down-right" style="width: 12.5px; height: 12.5px;"></i> Reply
+                  </button>
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <!-- Mark Solution (Only creator of Question) -->
+                  ${showMarkAsSolution ? `
+                    <button class="btn-secondary" style="font-size: 10px; padding: 2px 8px; border-color: rgba(16,185,129,0.3); color: #10b981; font-family: var(--font-mono);" onclick="window.setAsVerifiedSolution('${th.id}', '${r.id}')">
+                      ✓ ACCEPT SOLUTION
+                    </button>
+                  ` : ''}
+
+                  <!-- Delete button for own reply -->
+                  ${isReplyOwner ? `
+                    <button onclick="window.deleteDiscussionReply('${th.id}', '${r.id}')" style="background: transparent; border: none; color: var(--rose-bright); cursor: pointer; font-size: 11px; font-family: var(--font-mono);" class="hover:underline">SHRED</button>
+                  ` : ''}
+                </div>
+              </div>
+
+              <!-- Nested sub-replies rendered indented -->
+              ${r.replies && r.replies.length > 0 ? `
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; border-left: 2px solid rgba(6,182,212,0.15); padding-left: 14px; background: rgba(255,255,255,0.01); border-radius: 0 4px 4px 0; padding-top: 6px; padding-bottom: 6px;">
+                  ${r.replies.map(sub => {
+                    const isSubOwner = sub.user === activeUser || sub.user === 'agent_sowndhar_7' || sub.user === 'student_ranger_7';
+                    return `
+                      <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                          <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="font-mono text-cyan" style="font-size: 10.5px; font-weight: 700;">${sub.user}</span>
+                            <span style="font-size: 9px; color: var(--text-muted);">${window.timeAgo(sub.timestamp)}</span>
+                          </div>
+                          ${isSubOwner ? `
+                            <button onclick="window.deleteNestedReply('${th.id}', '${r.id}', '${sub.id}')" style="background:transparent; border:none; color: var(--rose-bright); cursor:pointer; font-size:10px; font-family:var(--font-mono);" class="hover:underline">× delete</button>
+                          ` : ''}
+                        </div>
+                        <p style="margin-left: 2px; word-break: break-word;">${sub.content}</p>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              ` : ''}
+
+              <!-- Inline sub-reply expansion form -->
+              <div id="nested-reply-form-${r.id}" style="display: none; margin-top: 10px; border-top: 1px dashed rgba(255,255,255,0.05); padding-top: 10px;">
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="nested-reply-input-${r.id}" placeholder="Type nested feedback response..." 
+                         style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 5px 10px; color: #ffffff; font-size: 11.5px; width: 100%; outline: none;"
+                         onkeydown="if(event.key === 'Enter') window.submitNestedReply('${th.id}', '${r.id}')" />
+                  <button class="btn-primary" style="font-size: 10.5px; padding: 4px 10px;" onclick="window.submitNestedReply('${th.id}', '${r.id}')">Submit</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- Add Primary Reply Form Card -->
+      <div class="grid-card" style="padding: 20px; background: rgba(3,7,18,0.4); border-color: rgba(255,255,255,0.04); border-radius: 8px; margin-top: 12px;">
+        <h4 class="font-mono text-shadow" style="font-size: 11px; font-weight: 700; color: var(--cyan-bright); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">
+          POST NEW TRANSCRIPT RESPONSE
+        </h4>
+        <textarea id="reply-content-input" placeholder="Supply your verified academic analysis on this range challenge query..." rows="4"
+                  style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 14px; color: #ffffff; font-size: 12.5px; width: 100%; font-family: var(--font-sans); outline: none; resize: vertical; line-height: 1.5; margin-bottom: 14px;"
+                  onfocus="this.style.borderColor='var(--cyan-bright)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'"></textarea>
         
+        <div id="reply-moderation-warning" style="display: none; padding: 8px; background: rgba(239,68,68,0.08); border: 1px solid #ef4444; border-radius: 6px; font-size: 11px; color: #fca5a5; margin-bottom: 12px;"></div>
+
         <div style="display:flex; justify-content:flex-end;">
-          <button class="btn-primary" style="font-size:11.5px; padding: 5px 12px;" onclick="submitDiscussionReply('${th.id}')">Submit Reply</button>
+          <button class="btn-primary" style="font-size:12px; padding: 6px 14px; background: rgba(6,182,212,0.1); border-color: var(--cyan-bright);" onclick="window.submitDiscussionReply('${th.id}')">
+            <i data-lucide="send" style="width: 13px; height: 13px; display: inline-block; margin-right: 4px; vertical-align: middle;"></i> Submit Response
+          </button>
         </div>
       </div>
     </div>
   `;
+
+  // Track currently active viewing ID
+  const activeTracker = document.getElementById('active-thread-id-tracker');
+  if (activeTracker) {
+    activeTracker.value = threadId;
+  }
+
   lucide.createIcons();
 };
 
-window.submitDiscussionReply = function(threadId) {
-  const replyVal = document.getElementById('reply-content-input')?.value.trim() || '';
-  if (!replyVal) {
-    window.showNotification('Operation Aborted: Replies require a non-empty message.', 'error');
+// Accept and verify a specific solution reply (Author only)
+window.setAsVerifiedSolution = function(threadId, replyId) {
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th) {
+    th.solved = true;
+    th.replies.forEach(r => {
+      r.isSolution = (r.id === replyId);
+    });
+    saveDiscussions(list);
+    window.showNotification('Reply verified as solution thread.', 'success');
+    window.viewDiscussionThread(threadId);
+  }
+};
+
+// Toggle sub-reply nesting expander form
+window.toggleNestedReplyForm = function(replyId) {
+  const form = document.getElementById(`nested-reply-form-${replyId}`);
+  if (form) {
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    if (form.style.display === 'block') {
+      const input = document.getElementById(`nested-reply-input-${replyId}`);
+      if (input) input.focus();
+    }
+  }
+};
+
+// Submit nested sub-reply payload
+window.submitNestedReply = function(threadId, replyId) {
+  const input = document.getElementById(`nested-reply-input-${replyId}`);
+  const contentVal = input ? input.value.trim() : '';
+
+  if (!contentVal) {
+    window.showNotification('Operation Aborted: Replies require a message.', 'error');
+    return;
+  }
+
+  // Moderation filter
+  const blacklist = ['fuck', 'shit', 'bitch', 'asshole'];
+  const hasOffensive = blacklist.some(term => contentVal.toLowerCase().includes(term));
+  if (hasOffensive) {
+    window.showNotification('Response contains flagged terms. Safe sandbox transmission active.', 'error');
     return;
   }
 
   const list = getDiscussions();
   const th = list.find(d => d.id === threadId);
   if (th) {
-    const timeStr = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const parentReply = th.replies.find(r => r.id === replyId);
+    if (parentReply) {
+      if (!parentReply.replies) parentReply.replies = [];
+      
+      const activeUser = window.getStudentName();
+      parentReply.replies.push({
+        id: "rep_nest_" + Date.now(),
+        user: activeUser,
+        content: contentVal,
+        timestamp: new Date().toISOString()
+      });
+
+      saveDiscussions(list);
+      window.showNotification('Response synchronized.', 'success');
+      window.viewDiscussionThread(threadId);
+    }
+  }
+};
+
+// Delete nested sub-reply
+window.deleteNestedReply = function(threadId, replyId, nestedReplyId) {
+  if (!confirm('Are you sure you want to delete this nested reply?')) return;
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th) {
+    const parentReply = th.replies.find(r => r.id === replyId);
+    if (parentReply && parentReply.replies) {
+      parentReply.replies = parentReply.replies.filter(sub => sub.id !== nestedReplyId);
+      saveDiscussions(list);
+      window.showNotification('Nested comment shredded.', 'success');
+      window.viewDiscussionThread(threadId);
+    }
+  }
+};
+
+// Delete a regular top-level reply
+window.deleteDiscussionReply = function(threadId, replyId) {
+  if (!confirm('Are you sure you want to shred this transcript comment?')) return;
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (th && th.replies) {
+    th.replies = th.replies.filter(r => r.id !== replyId);
+    saveDiscussions(list);
+    window.showNotification('Comment shredded from registry.', 'success');
+    window.viewDiscussionThread(threadId);
+  }
+};
+
+// Submit a new main thread reply
+window.submitDiscussionReply = function(threadId) {
+  const replyInput = document.getElementById('reply-content-input');
+  const warningDiv = document.getElementById('reply-moderation-warning');
+  const replyVal = replyInput ? replyInput.value.trim() : '';
+
+  if (!replyVal) {
+    window.showNotification('Operation Aborted: Replies require non-empty text.', 'error');
+    return;
+  }
+
+  // Spam Protection: check for duplicate reply to prevent UI flood
+  const list = getDiscussions();
+  const th = list.find(d => d.id === threadId);
+  if (!th) return;
+
+  const isSpam = th.replies && th.replies.slice(-3).some(r => r.content === replyVal);
+  if (isSpam) {
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>Spam Alert:</b> Duplicate comment content detected in stream. Please write a genuine analytical answer.`;
+    }
+    window.showNotification('Duplicate comment rejected.', 'error');
+    return;
+  }
+
+  // Moderation blacklist check
+  const blacklist = ['fuck', 'shit', 'bitch', 'asshole', 'crap', 'bastard'];
+  const hasOffensive = blacklist.some(term => replyVal.toLowerCase().includes(term));
+  if (hasOffensive) {
+    if (warningDiv) {
+      warningDiv.style.display = 'block';
+      warningDiv.innerHTML = `⚠️ <b>Firewall Block:</b> Content contains banned terms. Please maintain respectful and academic behaviour.`;
+    }
+    window.showNotification('Banned content rejected.', 'error');
+    return;
+  }
+
+  const activeUser = window.getStudentName();
+  th.replies.push({
+    id: "rep_" + Date.now(),
+    user: activeUser,
+    avatar: "🕵️",
+    content: replyVal,
+    likes: 0,
+    helpfulCount: 0,
+    helpfulVotedByMe: false,
+    timestamp: new Date().toISOString(),
+    replies: []
+  });
+  
+  saveDiscussions(list);
+  window.showNotification('Reply synchronized.', 'success');
+  window.viewDiscussionThread(threadId);
+};
+
+// HTML Loading Skeleton rendering helper
+function renderLoadingSkeleton() {
+  return `
+    <div style="display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; animation: pulse 1.8s infinite ease-in-out;" class="flex-col md:grid">
+      <!-- Left side skeleton -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="grid-card" style="height: 160px; background: rgba(3,7,18,0.1); border-color: rgba(255,255,255,0.02); border-radius: 8px;"></div>
+        <div class="grid-card" style="height: 280px; background: rgba(3,7,18,0.1); border-color: rgba(255,255,255,0.02); border-radius: 8px;"></div>
+      </div>
+
+      <!-- Right side feed skeleton -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="grid-card" style="height: 70px; background: rgba(3,7,18,0.15); border-color: rgba(255,255,255,0.02); border-radius: 8px; display: flex; align-items: center; padding: 20px;">
+          <div style="width: 200px; height: 16px; background: rgba(255,255,255,0.03); border-radius: 4px;"></div>
+        </div>
+        <div style="display: flex; gap: 12px; height: 44px; background: rgba(0,0,0,0.1); border-radius: 6px; padding: 6px; border: 1px solid rgba(255,255,255,0.02);">
+          <div style="width: 80px; height: 100%; background: rgba(255,255,255,0.03); border-radius: 4px;"></div>
+          <div style="width: 80px; height: 100%; background: rgba(255,255,255,0.03); border-radius: 4px;"></div>
+          <div style="width: 80px; height: 100%; background: rgba(255,255,255,0.03); border-radius: 4px;"></div>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          ${[1, 2, 3].map(() => `
+            <div class="grid-card" style="padding: 16px; background: rgba(3,7,18,0.1); border-color: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 12px; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between;">
+                <div style="width: 150px; height: 12px; background: rgba(255,255,255,0.03); border-radius: 3px;"></div>
+                <div style="width: 80px; height: 12px; background: rgba(255,255,255,0.03); border-radius: 3px;"></div>
+              </div>
+              <div style="width: 90%; height: 15px; background: rgba(255,255,255,0.04); border-radius: 4px; margin-top: 4px;"></div>
+              <div style="width: 100%; height: 24px; background: rgba(255,255,255,0.02); border-radius: 4px;"></div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Live simulated background real-time updates (instructor comments, new range posts)
+window.simulateRealtimeActivity = function() {
+  if (document.getElementById('subview-discussions')?.style.display !== 'block') {
+    return;
+  }
+  
+  const list = window.getDiscussions();
+  if (list.length === 0) return;
+  
+  // Choose random action: 70% reply to existing post, 30% create new post
+  const rand = Math.random();
+  const simulatedUsers = ["instructor_alex", "soc_lead_raghul", "packet_sniffer_99", "malware_analyst_sarah", "kernel_hacker_42", "quantum_bits"];
+  const simulatedAvatars = ["🤖", "🛡️", "🕵️", "💻", "🔬", "🛰️"];
+  
+  const userIdx = Math.floor(Math.random() * simulatedUsers.length);
+  const activeUser = simulatedUsers[userIdx];
+  const activeAvatar = simulatedAvatars[userIdx];
+  
+  if (rand < 0.70) {
+    // Reply to a random thread
+    const threadIdx = Math.floor(Math.random() * list.length);
+    const th = list[threadIdx];
+    
+    // Ignore locked or reported threads
+    if (th.reported) return;
+    
+    const replyPools = [
+      "Fascinating perspective! Under zero-trust modeling, this configuration would be flagged immediately by PAM policies.",
+      "I encountered this identical issue in the staging sandboxes yesterday. Check if your iptables chains are blocking port ingress.",
+      "Confirmed. This aligns perfectly with OWASP guidelines on secure XML parsing. Good catch!",
+      "Are you sure about the encryption padding size? A block alignment mismatch typically throws a padding oracle exception.",
+      "Interesting payload! Let me deploy this in my secure local VM and inspect the network packet dump in Wireshark.",
+      "This is solid. Marking this thread as a helpful academic query. Thanks for writing this down!",
+      "I'd recommend consulting the RFC documentation directly. There are several subtle edge cases on port forwarding rules."
+    ];
+    
+    const replyText = replyPools[Math.floor(Math.random() * replyPools.length)];
+    
     th.replies.push({
-      id: "rep_" + Date.now(),
-      user: "student_ranger_7",
-      content: replyVal,
-      timestamp: timeStr
+      id: "rep_sim_" + Date.now(),
+      user: activeUser,
+      avatar: activeAvatar,
+      content: replyText,
+      likes: 0,
+      helpfulCount: 0,
+      helpfulVotedByMe: false,
+      timestamp: new Date().toISOString(),
+      replies: []
     });
     
-    localStorage.setItem('cybershield_discussions', JSON.stringify(list));
-    window.showNotification('Reply synchronized.', 'success');
-    viewDiscussionThread(threadId);
+    saveDiscussions(list);
+    window.showNotification(`[+] LIVE FEED: @${activeUser} responded to "${th.title.substring(0, 30)}..."`, "info");
+    
+    // If the user is currently viewing this thread, refresh the thread view!
+    const activeDetailContainer = document.getElementById('active-thread-id-tracker');
+    if (activeDetailContainer && activeDetailContainer.value === th.id) {
+      window.viewDiscussionThread(th.id);
+    } else {
+      window.renderDiscussionsSubview();
+    }
+  } else {
+    // Post a new simulated question!
+    const postPools = [
+      {
+        title: "Mitigating side-channel latency attacks on local host caches?",
+        content: "We're observing timing leak anomalies when fetching cached symmetric keys from shared hardware blocks. What hardware isolation rings are best suited to shield timing leaks?",
+        category: "Cryptography"
+      },
+      {
+        title: "Docker container escape via namespace mapping error?",
+        content: "I successfully escalated to root inside a sandbox container, but I'm unable to mount host directory nodes. Is this a cgroups limitation or AppArmor filtering?",
+        category: "Linux"
+      },
+      {
+        title: "Wireshark TLS 1.3 handshake decryption with pre-master secret keylog?",
+        content: "I configured the SSLKEYLOGFILE environment variable to capture secrets, but Wireshark still displays application data as encrypted. Is there an offset mismatch?",
+        category: "Networking"
+      }
+    ];
+    
+    const selectedPost = postPools[Math.floor(Math.random() * postPools.length)];
+    // Check if duplicate title
+    if (list.some(d => d.title.toLowerCase() === selectedPost.title.toLowerCase())) return;
+    
+    list.unshift({
+      id: "disc_sim_" + Date.now(),
+      type: "question",
+      title: selectedPost.title,
+      content: selectedPost.content,
+      category: selectedPost.category,
+      user: activeUser,
+      avatar: activeAvatar,
+      likes: 4,
+      likedByMe: false,
+      timestamp: new Date().toISOString(),
+      pinned: false,
+      solved: false,
+      reported: false,
+      replies: []
+    });
+    
+    saveDiscussions(list);
+    window.showNotification(`[+] NEW TOPIC: @${activeUser} published a thread on "${selectedPost.category}"`, "success");
+    
+    // Only refresh the main subview if the user is currently looking at the list (not on Ask Question modal or details view)
+    const activeDetailContainer = document.getElementById('active-thread-id-tracker');
+    if (!activeDetailContainer && !document.getElementById('disc-title-input')) {
+      window.renderDiscussionsSubview();
+    }
   }
 };
 

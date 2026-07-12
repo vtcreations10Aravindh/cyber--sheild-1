@@ -46,6 +46,10 @@
             <i data-lucide="layout-dashboard"></i>
             <span>Dashboard</span>
           </a>
+          <a href="#" class="nav-item" data-target="cyber-emergency">
+            <i data-lucide="shield-alert" style="color: var(--rose-bright);"></i>
+            <span style="color: var(--rose-bright); font-weight: 600;">Cyber Emergency Center</span>
+          </a>
           <a href="#" class="nav-item" data-target="profile">
             <i data-lucide="user"></i>
             <span>My Profile</span>
@@ -532,6 +536,68 @@
                 </div>
                 <div class="activity-timeline-container" id="activity-timeline">
                   <!-- Constructed dynamically in js -->
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CYBER EMERGENCY CENTER TAB SECTION -->
+          <section id="tab-cyber-emergency" class="content-section">
+            <div class="section-header-banner" style="margin-bottom: 24px; padding: 20px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="width: 48px; height: 48px; background: rgba(239, 68, 68, 0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); flex-shrink: 0;">
+                  <i data-lucide="shield-alert" style="width: 24px; height: 24px; color: var(--rose-bright);"></i>
+                </div>
+                <div>
+                  <h1 class="main-title" style="margin: 0; color: #fff; font-size: 24px;"><span style="color: var(--rose-bright); font-weight: 700;">CYBER EMERGENCY</span> CENTER</h1>
+                  <p class="main-subtitle" style="margin: 4px 0 0 0; font-size: 13px; color: var(--text-secondary);">Real-time containment protocols, interactive recovery playbooks, and regulatory escalations.</p>
+                </div>
+              </div>
+              <div style="text-align: right; min-width: 180px;">
+                <p class="status-line font-bold uppercase" style="font-family: var(--font-mono); font-size: 11px; color: var(--rose-bright); margin-bottom: 4px;">EMERGENCY RESPONSE MODE</p>
+                <p class="status-line-sub" style="font-size: 12px; color: var(--text-muted);">Helpline: <span style="color: #fff; font-weight: 600;">1930</span> (India Govt)</p>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start;" id="emergency-grid-layout">
+              <!-- Left Sidebar: 10 Emergency Playbooks -->
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <h4 class="font-mono text-muted" style="font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">Incident Playbooks</h4>
+                <div id="emergency-menu-list" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Dynamically populated, with a beautiful indicator -->
+                </div>
+
+                <!-- India Gov Info Box -->
+                <div class="grid-card shadow-glow" style="margin-top: 12px; border-color: rgba(6, 182, 212, 0.15); background: rgba(6, 182, 212, 0.02);">
+                  <div class="card-corner corner-tl"></div>
+                  <div class="card-corner corner-tr"></div>
+                  <div class="card-corner corner-bl"></div>
+                  <div class="card-corner corner-br"></div>
+                  <h5 class="font-mono text-cyan" style="font-size: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="flag" style="width: 14px; height: 14px;"></i> OFFICIAL INDIA HELPLINE
+                  </h5>
+                  <p style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 12px;">
+                    Report online financial fraud or cybersecurity breaches directly to Indian authorities:
+                  </p>
+                  <a href="https://cybercrime.gov.in" target="_blank" class="btn-primary" style="width: 100%; display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 12px; padding: 10px; margin-bottom: 8px; background: linear-gradient(135deg, #fb923c, #f97316); text-decoration: none; box-shadow: 0 4px 10px rgba(249, 115, 22, 0.2);">
+                    <i data-lucide="external-link" style="width: 14px; height: 14px;"></i> cybercrime.gov.in
+                  </a>
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; background: rgba(251, 146, 60, 0.1); border: 1px solid rgba(251, 146, 60, 0.2); border-radius: 4px; color: #ffedd5;">
+                    <i data-lucide="phone" style="width: 14px; height: 14px; color: #f97316;"></i>
+                    <span style="font-family: var(--font-mono); font-weight: 700; font-size: 14px;">Helpline: 1930</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Main Content Stage: Active Playbook Wizard -->
+              <div class="grid-card shadow-glow" id="active-playbook-container" style="min-height: 600px; padding: 24px; position: relative; border-color: rgba(239, 68, 68, 0.15); display: flex; flex-direction: column;">
+                <div class="card-corner corner-tl"></div>
+                <div class="card-corner corner-tr"></div>
+                <div class="card-corner corner-bl"></div>
+                <div class="card-corner corner-br"></div>
+                
+                <div id="playbook-wizard-content" style="flex-grow: 1; display: flex; flex-direction: column;">
+                  <!-- Rendered dynamically in JS based on active incident playbook -->
                 </div>
               </div>
             </div>
@@ -2200,6 +2266,9 @@
     <!-- Learning Center Datastore & Control Modules -->
     <script type="module" src="/js/learning-data.js"></script>
     <script type="module" src="/js/learning-center.js"></script>
+
+    <!-- Cyber Emergency Center Module -->
+    <script type="module" src="/js/cyber-emergency.js"></script>
 
     <!-- Core Script Reference -->
     <script type="module" src="/js/dashboard.js"></script>
