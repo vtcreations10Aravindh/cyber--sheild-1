@@ -962,15 +962,8 @@ function executeFetchForSource(source, index) {
   };
 
   if (source.type === 'newsapi') {
-    const apiKey = import.meta.env.VITE_NEWS_API_KEY;
-    if (!apiKey || apiKey.trim() === '') {
-      handleFailover(new Error('NewsAPI key is empty or missing in environment.'));
-      return;
-    }
-    
-    // NewsAPI query
-    const q = 'cybersecurity OR ransomware OR vulnerability OR "zero-day"';
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&sortBy=publishedAt&pageSize=40&apiKey=${apiKey}`;
+    // Call server-side proxy to hide API keys safely
+    const url = `/api/news?type=newsapi`;
 
     fetch(url)
       .then(res => {
@@ -994,14 +987,9 @@ function executeFetchForSource(source, index) {
       });
 
   } else if (source.type === 'gnews') {
-    const apiKey = import.meta.env.VITE_GNEWS_API_KEY;
-    if (!apiKey || apiKey.trim() === '') {
-      handleFailover(new Error('GNews key is empty or missing in environment.'));
-      return;
-    }
-
+    // Call server-side proxy to hide API keys safely
     const q = 'cybersecurity OR ransomware OR vulnerability';
-    const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(q)}&lang=en&max=40&apikey=${apiKey}`;
+    const url = `/api/news?type=gnews&q=${encodeURIComponent(q)}`;
 
     fetch(url)
       .then(res => {
