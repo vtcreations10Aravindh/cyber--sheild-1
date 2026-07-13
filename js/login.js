@@ -460,6 +460,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Welcome toast on load
   setTimeout(() => {
-    showNotification('CyberShield Gateway Active. Welcome back, Agent.', 'info', 3500);
+    showNotification('CyberShield Gateway Active. Welcome back.', 'info', 3500);
   }, 1000);
 });

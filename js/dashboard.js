@@ -2802,7 +2802,7 @@ const SEARCHABLE_ITEMS = [
   { title: "Cyber Threat Intel Feed", category: "Module", desc: "Latest global cyber threat intelligence, news & advisories", tab: "cyber-news", keywords: ["news", "threat", "intel", "feed", "advisory", "articles", "gnews"] },
   { title: "Live Threat Map Simulation", category: "Module", desc: "Simulated live intrusion audits and interactive threat maps", tab: "live-simulation", keywords: ["map", "hacker", "live", "simulation", "intrusion", "attack", "visualizer"] },
   { title: "Reports & Audit Logs", category: "Module", desc: "Security readiness reports, compliance metrics, and scan logs", tab: "reports", keywords: ["report", "audit", "compliance", "score", "pdf", "csv", "log"] },
-  { title: "Academy Learning Command Center", category: "Module", desc: "Verifiable cybersecurity curriculum, lessons, labs and quizzes", tab: "learning-center", keywords: ["learning", "center", "academy", "course", "lesson", "book", "quiz", "lab", "credential", "certificate"] },
+  { title: "CyberShield Learning Center", category: "Module", desc: "Verifiable cybersecurity curriculum, lessons, labs and quizzes", tab: "learning-center", keywords: ["learning", "center", "academy", "course", "lesson", "book", "quiz", "lab", "credential", "certificate"] },
   { title: "SOC Security Settings Dashboard", category: "Module", desc: "Configure zero-trust preferences, live simulations, and logs", tab: "settings", keywords: ["settings", "preferences", "config", "toggle", "sandbox", "defaults"] },
   { title: "Help & SOC Documentation", category: "Module", desc: "Get security help, study survival guides, or report incidents", tab: "help-support", keywords: ["help", "support", "faq", "documentation", "guide", "emergency", "report"] },
   { title: "About CyberShield", category: "Module", desc: "Learn about the CyberShield Command Platform, core features, and technology", tab: "about", keywords: ["about", "platform", "version", "info", "credits"] },
@@ -2833,8 +2833,8 @@ function getDynamicSearchItems() {
   books.forEach(book => {
     // Add Book Course
     items.push({
-      title: `${book.title} (Academy Course)`,
-      category: "Academy Training Course",
+      title: `${book.title} (CyberShield Course)`,
+      category: "CyberShield Training Course",
       desc: book.description,
       tab: "learning-center",
       bookId: book.id,
@@ -2848,7 +2848,7 @@ function getDynamicSearchItems() {
           ch.lessons.forEach(l => {
             items.push({
               title: `${l.title} (Lesson // ${book.title})`,
-              category: "Academy Lesson Module",
+              category: "CyberShield Lesson Module",
               desc: `Chapter: ${ch.title}. Complete learning material, quizzes and practical ranges.`,
               tab: "learning-center",
               bookId: book.id,
@@ -3032,8 +3032,8 @@ function renderSuggestions(results) {
       let icon = 'arrow-up-right';
       if (item.category === 'Module') icon = 'compass';
       else if (item.category === 'Tool') icon = 'cpu';
-      else if (item.category === 'Academy Training Course') icon = 'book-open';
-      else if (item.category === 'Academy Lesson Module') icon = 'graduation-cap';
+      else if (item.category === 'CyberShield Training Course') icon = 'book-open';
+      else if (item.category === 'CyberShield Lesson Module') icon = 'graduation-cap';
 
       html += `
         <div class="search-suggestion-row" onclick="handleSuggestionClick('${encodeURIComponent(JSON.stringify(item))}')" style="padding: 10px 16px; cursor: pointer; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.01);">
@@ -3086,9 +3086,9 @@ window.handleSuggestionClick = function(itemDataEncoded) {
 // Route to correct panel and initiate deep interaction
 function activateSearchResult(item) {
   if (item.tab) {
-    if (item.category === 'Academy Lesson Module' && item.bookId && item.lessonId) {
+    if (item.category === 'CyberShield Lesson Module' && item.bookId && item.lessonId) {
       navigateToCourseLesson(item.bookId, item.lessonId);
-    } else if (item.category === 'Academy Training Course' && item.bookId) {
+    } else if (item.category === 'CyberShield Training Course' && item.bookId) {
       window.navigateToTab('learning-center');
       if (typeof window.openCourseViewer === 'function') {
         window.openCourseViewer(item.bookId);
@@ -3123,13 +3123,18 @@ function navigateToCourseLesson(bookId, lessonId) {
 
 // 3. Operative Profile Controller
 window.syncHeaderProfile = function() {
-  const name = localStorage.getItem('cybershield_student_name') || 'AGENT SOWNDHAR P';
+  const name = localStorage.getItem('cybershield_student_name') || 'GUEST USER';
   const role = localStorage.getItem('cybershield_student_role') || 'SOC Operations Chief';
   const photo = localStorage.getItem('cybershield_student_photo') || '';
 
   const userNameEl = document.querySelector('.user-profile-widget .user-name');
   if (userNameEl) {
     userNameEl.textContent = name;
+  }
+  
+  const welcomeNameEl = document.getElementById('dashboard-welcome-name');
+  if (welcomeNameEl) {
+    welcomeNameEl.textContent = name;
   }
   
   const userRoleEl = document.querySelector('.user-profile-widget .user-role');
@@ -3143,7 +3148,7 @@ window.syncHeaderProfile = function() {
       avatarEl.innerHTML = `<img src="${photo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" referrerPolicy="no-referrer" />`;
     } else {
       const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-      avatarEl.textContent = initials || 'SP';
+      avatarEl.textContent = initials || 'OP';
     }
   }
 };
@@ -3156,7 +3161,7 @@ function getRecentActivities() {
   } catch (e) {}
   
   const initialLogs = [
-    { type: 'login', text: 'Operative secure session handshake established', time: new Date(Date.now() - 3600000 * 2).toISOString() },
+    { type: 'login', text: 'User secure session handshake established', time: new Date(Date.now() - 3600000 * 2).toISOString() },
     { type: 'tool', text: 'Executed Multi-Signature File Hash Verifier scanner', time: new Date(Date.now() - 3600000 * 5).toISOString() },
     { type: 'learning', text: 'Began enrollment in Course: Network Basics', time: new Date(Date.now() - 3600000 * 24).toISOString() }
   ];
@@ -3201,14 +3206,18 @@ function getBookStats(book, progressMap) {
 }
 
 window.loadProfileData = function() {
-  const name = localStorage.getItem('cybershield_student_name') || 'AGENT SOWNDHAR P';
-  const email = localStorage.getItem('cybershield_student_email') || 'aravindhp312@gmail.com';
+  const username = localStorage.getItem('cybershield_student_username') || 'GUEST_USER';
+  const name = localStorage.getItem('cybershield_student_name') || 'GUEST USER';
+  const email = localStorage.getItem('cybershield_student_email') || 'vtcreations10@gmail.com';
   const role = localStorage.getItem('cybershield_student_role') || 'SOC Operations Chief';
-  const bio = localStorage.getItem('cybershield_student_bio') || 'SOC Operative. Command level zero-trust auditor. Securing system nodes and range parameters.';
+  const bio = localStorage.getItem('cybershield_student_bio') || 'SOC Security Member. Command level zero-trust auditor. Securing system nodes and range parameters.';
   const photo = localStorage.getItem('cybershield_student_photo') || '';
   const theme = localStorage.getItem('cybershield_theme_preset') || 'cyan';
   const notifyBreach = localStorage.getItem('cybershield_notify_breach') !== 'false';
   const notifyAudio = localStorage.getItem('cybershield_notify_audio') === 'true';
+
+  const usernameInp = document.getElementById('profile-username-input');
+  if (usernameInp) usernameInp.value = username;
 
   const nameInp = document.getElementById('profile-name-input');
   if (nameInp) nameInp.value = name;
@@ -3241,7 +3250,7 @@ window.loadProfileData = function() {
       imgEl.style.display = 'none';
       imgEl.src = '';
       const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-      initialsEl.textContent = initials || 'SP';
+      initialsEl.textContent = initials || 'OP';
     }
   }
 
@@ -3266,26 +3275,88 @@ window.loadProfileData = function() {
   renderProfileStats();
 };
 
+let profileAutoSaveTimeout = null;
+window.triggerProfileAutoSave = function() {
+  if (profileAutoSaveTimeout) {
+    clearTimeout(profileAutoSaveTimeout);
+  }
+  
+  const usernameInput = document.getElementById('profile-username-input');
+  const nameInput = document.getElementById('profile-name-input');
+  if (usernameInput) usernameInput.style.boxShadow = '0 0 10px rgba(6, 182, 212, 0.3)';
+  if (nameInput) nameInput.style.boxShadow = '0 0 10px rgba(6, 182, 212, 0.3)';
+
+  profileAutoSaveTimeout = setTimeout(() => {
+    const emailInput = document.getElementById('profile-email-input');
+    const roleInput = document.getElementById('profile-role-input');
+    const bioInput = document.getElementById('profile-bio-input');
+
+    const usernameVal = usernameInput ? usernameInput.value.trim() : '';
+    const nameVal = nameInput ? nameInput.value.trim() : '';
+    const emailVal = emailInput ? emailInput.value.trim() : '';
+    const roleVal = roleInput ? roleInput.value.trim() : '';
+    const bioVal = bioInput ? bioInput.value.trim() : '';
+
+    if (!usernameVal) {
+      showNotification("Validation Error: Username cannot be empty.", "error");
+      return;
+    }
+    if (!nameVal) {
+      showNotification("Validation Error: Full Name cannot be empty.", "error");
+      return;
+    }
+
+    localStorage.setItem('cybershield_student_username', usernameVal);
+    
+    if (typeof window.setStudentName === 'function') {
+      window.setStudentName(nameVal);
+    } else {
+      localStorage.setItem('cybershield_student_name', nameVal);
+    }
+    
+    if (emailVal) localStorage.setItem('cybershield_student_email', emailVal);
+    if (roleVal) localStorage.setItem('cybershield_student_role', roleVal);
+    if (bioVal) localStorage.setItem('cybershield_student_bio', bioVal);
+
+    if (usernameInput) usernameInput.style.boxShadow = '';
+    if (nameInput) nameInput.style.boxShadow = '';
+
+    window.syncHeaderProfile();
+    showNotification("AUTO-SYNCED: Profile credentials automatically secured.", "success");
+  }, 1000);
+};
+
 window.saveProfileEdits = function() {
+  if (profileAutoSaveTimeout) {
+    clearTimeout(profileAutoSaveTimeout);
+  }
+  const usernameInput = document.getElementById('profile-username-input');
   const nameInput = document.getElementById('profile-name-input');
   const emailInput = document.getElementById('profile-email-input');
   const roleInput = document.getElementById('profile-role-input');
   const bioInput = document.getElementById('profile-bio-input');
 
+  const usernameVal = usernameInput ? usernameInput.value.trim() : '';
   const nameVal = nameInput ? nameInput.value.trim() : '';
   const emailVal = emailInput ? emailInput.value.trim() : '';
   const roleVal = roleInput ? roleInput.value.trim() : '';
   const bioVal = bioInput ? bioInput.value.trim() : '';
 
-  if (!nameVal) {
-    showNotification("Validation Error: Operative Codename cannot be empty.", "error");
+  if (!usernameVal) {
+    showNotification("Validation Error: Username cannot be empty.", "error");
     return;
   }
-  if (!emailVal || !emailVal.includes('@')) {
+  if (!nameVal) {
+    showNotification("Validation Error: Full Name cannot be empty.", "error");
+    return;
+  }
+  if (emailVal && !emailVal.includes('@')) {
     showNotification("Validation Error: Please provide a secure email endpoint.", "error");
     return;
   }
 
+  localStorage.setItem('cybershield_student_username', usernameVal);
+  
   if (typeof window.setStudentName === 'function') {
     window.setStudentName(nameVal);
   } else {
@@ -3311,15 +3382,15 @@ window.saveProfileEdits = function() {
   if (setAudioAlerts) setAudioAlerts.checked = notifyAudio;
 
   window.syncHeaderProfile();
-  showNotification("COMMITTED: Operative identity credentials synchronized.", "success");
-  window.addRecentActivity('settings', "Saved operative profile changes");
+  showNotification("COMMITTED: Profile identity credentials synchronized.", "success");
+  window.addRecentActivity('settings', "Saved profile changes");
 
   loadProfileData();
 };
 
 window.cancelProfileEdits = function() {
   loadProfileData();
-  showNotification("Operative edits discarded.", "info");
+  showNotification("Profile edits discarded.", "info");
 };
 
 window.setProfileTheme = function(themeName) {
@@ -3404,7 +3475,7 @@ window.handleProfilePhotoChange = function(event) {
     
     window.syncHeaderProfile();
     showNotification("Profile avatar uploaded successfully.", "success");
-    window.addRecentActivity('settings', "Updated secure operative profile photo");
+    window.addRecentActivity('settings', "Updated profile photo");
   };
   reader.readAsDataURL(file);
 };
@@ -3418,9 +3489,9 @@ window.resetProfilePhoto = function() {
     imgEl.style.display = 'none';
     imgEl.src = '';
     
-    const nameVal = document.getElementById('profile-name-input')?.value || 'AGENT SOWNDHAR P';
+    const nameVal = document.getElementById('profile-name-input')?.value || 'GUEST USER';
     const initials = nameVal.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    initialsEl.textContent = initials || 'SP';
+    initialsEl.textContent = initials || 'OP';
   }
   window.syncHeaderProfile();
   showNotification("Profile avatar reverted to default.", "info");

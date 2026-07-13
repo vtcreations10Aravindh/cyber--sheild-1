@@ -1606,7 +1606,7 @@ function loadChatSession(chatId) {
         <div class="copilot-msg ${m.role}">
           <div class="bubble-header" style="color: ${isUser ? 'var(--cyan-bright)' : 'var(--emerald-bright)'};">
             <i data-lucide="${isUser ? 'user' : 'bot'}" style="width:12px; height:12px;"></i>
-            <span>${isUser ? 'CLIENT_OPERATIVE // INGRESS' : 'SOC_AI_AGENT // CORE'}</span>
+            <span>${isUser ? 'CLIENT_USER // INGRESS' : 'SOC_AI_COPILOT // CORE'}</span>
             <span style="color:var(--text-muted); font-size:9px; font-weight:normal; margin-left:6px;">${m.timestamp || ''}</span>
           </div>
           <div class="bubble-body">
@@ -1701,7 +1701,7 @@ function submitCopilotQuery() {
     loaderNode.innerHTML = `
       <div class="bubble-header" style="color:var(--emerald-bright);">
         <i data-lucide="bot" style="width:12px; height:12px;"></i>
-        <span>SOC_AI_AGENT // ANALYSING...</span>
+        <span>SOC_AI_COPILOT // ANALYSING...</span>
       </div>
       <div style="background: rgba(15,23,42,0.45); border:1px solid rgba(6,182,212,0.15); border-radius:10px; padding:16px; width:100%; box-sizing:border-box;">
         <div style="height:12px; width:140px; margin-bottom:10px;" class="soc-skeleton"></div>

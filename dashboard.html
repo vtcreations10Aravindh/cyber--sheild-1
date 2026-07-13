@@ -67,7 +67,7 @@
             <span>Reports & Analytics</span>
           </a>
 
-          <div class="nav-category-header">CYBER ACADEMY</div>
+          <div class="nav-category-header">CYBERSHIELD LEARNING CENTER</div>
           <a href="#" class="nav-item" data-target="learning-center">
             <i data-lucide="book-open"></i>
             <span>Learning Center</span>
@@ -210,7 +210,7 @@
             <div class="user-profile-widget">
               <div class="avatar-circle">SP</div>
               <div class="user-info-text">
-                <span class="user-name">Agent Sowndhar</span>
+                <span class="user-name">GUEST USER</span>
                 <span class="user-role">SOC Operations Chief</span>
               </div>
             </div>
@@ -785,7 +785,7 @@
                   <!-- Welcome Section Checklists -->
                   <div class="welcome-checklist-section">
                     <h3 class="checklist-heading">
-                      Welcome Back, <span class="text-cyan">Agent SOWNDHAR P</span>
+                      Welcome Back, <span class="text-cyan" id="dashboard-welcome-name">GUEST USER</span>
                     </h3>
                     <p class="checklist-subheading">Today your AI assistant is ready to help with:</p>
                     
@@ -1992,10 +1992,10 @@
             </div>
           </section>
 
-          <!-- OPERATIVE PROFILE -->
+          <!-- USER PROFILE -->
           <section id="tab-profile" class="content-section">
-            <h2 class="section-heading"><i data-lucide="user" class="text-cyan header-inline-icon"></i> SOC Operative Command Profile</h2>
-            <p class="section-desc">Manage secure operative credentials, monitor academic achievements, and calibrate UI system theme presets.</p>
+            <h2 class="section-heading"><i data-lucide="user" class="text-cyan header-inline-icon"></i> User Command Profile</h2>
+            <p class="section-desc">Manage secure profile credentials, monitor achievements, and calibrate UI system theme presets.</p>
             
             <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:24px;" class="profile-layout-grid">
               
@@ -2009,7 +2009,7 @@
                   
                   <h3 class="card-title" style="margin-bottom:16px; color:var(--cyan-bright);">
                     <i data-lucide="shield" style="width:14px; height:14px; display:inline-block; margin-right:6px; vertical-align:middle;"></i>
-                    OPERATIVE IDENTITY CREDENTIALS
+                    PROFILE IDENTITY CREDENTIALS
                   </h3>
 
                   <!-- Photo + Details Flex -->
@@ -2020,7 +2020,7 @@
                     </div>
                     
                     <div style="display:flex; flex-direction:column; gap:8px;">
-                      <span class="input-meta-label">OPERATIVE PHOTO / AVATAR</span>
+                      <span class="input-meta-label">PROFILE PICTURE</span>
                       <div style="display:flex; gap:10px;">
                         <button class="btn-secondary" style="padding:4px 10px; font-size:11px;" onclick="triggerProfilePhotoUpload()">Upload Image</button>
                         <button class="btn-secondary" style="padding:4px 10px; font-size:11px; color:var(--rose-bright);" onclick="resetProfilePhoto()">Clear Image</button>
@@ -2032,24 +2032,38 @@
 
                   <!-- Edit fields -->
                   <div style="display:flex; flex-direction:column; gap:16px;">
-                    <div class="form-group">
-                      <span class="input-meta-label">OPERATIVE CODENAME / FULL NAME</span>
-                      <input type="text" id="profile-name-input" class="form-input" placeholder="AGENT SOWNDHAR P" />
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="grid-cols-1-mobile">
+                      <div class="form-group" style="position:relative;">
+                        <span class="input-meta-label">USERNAME</span>
+                        <input type="text" id="profile-username-input" class="form-input" placeholder="Enter Username..." style="transition: all 0.3s ease;" oninput="triggerProfileAutoSave()" />
+                        <span class="input-glow-bar"></span>
+                      </div>
+                      <div class="form-group" style="position:relative;">
+                        <span class="input-meta-label">FULL NAME</span>
+                        <input type="text" id="profile-name-input" class="form-input" placeholder="Enter Full Name..." style="transition: all 0.3s ease;" oninput="triggerProfileAutoSave()" />
+                        <span class="input-glow-bar"></span>
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="grid-cols-1-mobile">
+                      <div class="form-group">
+                        <span class="input-meta-label">EMAIL ADDRESS</span>
+                        <input type="email" id="profile-email-input" class="form-input" placeholder="vtcreations10@gmail.com" oninput="triggerProfileAutoSave()" />
+                      </div>
+                      <div class="form-group">
+                        <span class="input-meta-label">ROLE</span>
+                        <input type="text" id="profile-role-input" class="form-input" placeholder="SOC Operations Chief" oninput="triggerProfileAutoSave()" />
+                      </div>
                     </div>
 
                     <div class="form-group">
-                      <span class="input-meta-label">SECURED EMAIL ENDPOINT</span>
-                      <input type="email" id="profile-email-input" class="form-input" placeholder="aravindhp312@gmail.com" />
+                      <span class="input-meta-label">MEMBER SINCE</span>
+                      <input type="text" id="profile-member-since-input" class="form-input" value="July 2026 (Active)" disabled style="opacity:0.75; background:rgba(255,255,255,0.02); color:var(--text-muted);" />
                     </div>
 
                     <div class="form-group">
-                      <span class="input-meta-label">OPERATIVE ROLE & RANK</span>
-                      <input type="text" id="profile-role-input" class="form-input" placeholder="SOC Operations Chief" />
-                    </div>
-
-                    <div class="form-group">
-                      <span class="input-meta-label">TACTICAL OPERATIVE BIOGRAPHY</span>
-                      <textarea id="profile-bio-input" class="form-input" style="resize:vertical; min-height:80px; font-family:var(--font-sans);" placeholder="Write a short tactical overview..."></textarea>
+                      <span class="input-meta-label">BIOGRAPHY</span>
+                      <textarea id="profile-bio-input" class="form-input" style="resize:vertical; min-height:80px; font-family:var(--font-sans);" placeholder="Write a short overview..." oninput="triggerProfileAutoSave()"></textarea>
                     </div>
                   </div>
                 </div>
@@ -2147,7 +2161,7 @@
                 <!-- Save/Cancel Actions -->
                 <div style="display:flex; gap:12px; justify-content:flex-end;">
                   <button class="btn-secondary" onclick="cancelProfileEdits()">Cancel Changes</button>
-                  <button class="btn-primary" onclick="saveProfileEdits()">Commit Operative Settings</button>
+                  <button class="btn-primary" onclick="saveProfileEdits()">Commit Profile Settings</button>
                 </div>
               </div>
 
@@ -2162,7 +2176,7 @@
                   
                   <h3 class="card-title" style="margin-bottom:16px; color:var(--cyan-bright);">
                     <i data-lucide="graduation-cap" style="width:14px; height:14px; display:inline-block; margin-right:6px; vertical-align:middle;"></i>
-                    ACADEMY LEARNING PROGRESS
+                    CYBERSHIELD LEARNING CENTER PROGRESS
                   </h3>
 
                   <div id="profile-learning-progress-container" style="display:flex; flex-direction:column; gap:14px;">
@@ -2526,7 +2540,7 @@
           <section id="tab-learning-center" class="content-section">
             <div class="section-header-banner" style="margin-bottom: 24px;">
               <div>
-                <h1 class="main-title">ACADEMY COMMAND GATEWAY</h1>
+                <h1 class="main-title">CYBERSHIELD LEARNING CENTER</h1>
                 <p class="main-subtitle">Immersive cyber defense security training & certificate center</p>
               </div>
               

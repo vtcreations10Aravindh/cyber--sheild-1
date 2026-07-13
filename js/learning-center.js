@@ -1,5 +1,5 @@
 /**
- * CyberShield Academy & Learning Center Control Module
+ * CyberShield Learning Center Control Module
  * Orchestrates syllabus, persistent states, responsive stage, assessments & certificate generators.
  */
 
@@ -1418,7 +1418,7 @@ function renderFinalAssessmentStage(container, completedInfo) {
         <div class="grid-card shadow-glow" style="padding: 24px; border-color: var(--amber-glow); background: rgba(245, 158, 11, 0.04); border-radius: 8px; margin-bottom: 24px;">
           <div style="display: flex; flex-direction: column; align-items: center; text-align: center;">
             <i data-lucide="award" style="width: 56px; height: 56px; color: var(--amber-bright); margin-bottom: 12px; filter: drop-shadow(0 0 10px rgba(245,158,11,0.4));"></i>
-            <h3 class="font-display" style="color: #ffffff; font-size: 20px; font-weight: 700; margin-bottom: 4px;">CONGRATULATIONS, AGENT!</h3>
+            <h3 class="font-display" style="color: #ffffff; font-size: 20px; font-weight: 700; margin-bottom: 4px;">CONGRATULATIONS, MEMBER!</h3>
             <p class="font-mono text-amber" style="font-size: 12px; font-weight: 700;">COURSE COMPLETE - CERTIFICATE GENERATION READY</p>
             
             <p style="font-size: 13.5px; color: var(--text-secondary); margin-top: 10px; max-width: 550px;">
@@ -1426,7 +1426,7 @@ function renderFinalAssessmentStage(container, completedInfo) {
             </p>
 
             <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; width: 100%; max-width: 440px; justify-content: center;">
-              <input type="text" id="cert-agent-name" placeholder="Enter Full Name" value="${window.getStudentName ? window.getStudentName() : 'Agent Sowndhar'}" 
+              <input type="text" id="cert-agent-name" placeholder="Enter Full Name" value="${window.getStudentName ? window.getStudentName() : 'GUEST USER'}" 
                      style="background: var(--input-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 16px; color: #ffffff; font-size: 13.5px; font-weight: 600; text-align: center; width: 100%; max-width: 280px; outline: none; transition: border 0.2s;"
                      onfocus="this.style.borderColor='var(--cyan-glow)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"
                      oninput="if(window.setStudentName) window.setStudentName(this.value)" />
@@ -1535,7 +1535,7 @@ window.triggerCertificateCompilation = function() {
   const book = academyState.activeBook;
   if (!book) return;
 
-  const agentName = document.getElementById('cert-agent-name').value.trim() || 'Agent Sowndhar';
+  const agentName = document.getElementById('cert-agent-name').value.trim() || 'GUEST USER';
   const completedInfo = getCompletedBooksMap()[book.id] || {};
   const certId = completedInfo.certificateId || 'CS-CERTIFICATE';
   const dateStr = completedInfo.completedAt || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -1581,14 +1581,14 @@ window.triggerCertificateCompilation = function() {
           </div>
           <div style="text-align: left;">
             <p style="font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #f59e0b; letter-spacing: 2px;">CYBERSHIELD COMMAND</p>
-            <p style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted);">SECURITY OPERATIONS ACADEMY</p>
+            <p style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted);">SECURITY OPERATIONS LEARNING CENTER</p>
           </div>
         </div>
 
         <p style="font-family: var(--font-display); font-size: 14px; letter-spacing: 4px; color: var(--text-secondary); text-transform: uppercase;">CERTIFICATE OF GRADUATION</p>
         <div style="width: 80px; height: 1px; background: #f59e0b; margin: 12px auto 28px;"></div>
 
-        <p style="font-size: 14px; color: var(--text-secondary); font-style: italic;">This dynamic credentials document verifies that cybersecurity operative</p>
+        <p style="font-size: 14px; color: var(--text-secondary); font-style: italic;">This dynamic credentials document verifies that cybersecurity professional</p>
         <h1 class="font-display" style="font-size: 36px; font-weight: 900; color: #ffffff; margin: 16px 0; letter-spacing: 1px; text-shadow: 0 2px 10px rgba(255,255,255,0.05);">${agentName}</h1>
         
         <p style="font-size: 14px; color: var(--text-secondary); max-width: 600px; margin: 0 auto; line-height: 1.6;">
@@ -1905,7 +1905,7 @@ window.exportNotesToTXT = function() {
   }
 
   let text = `====================================================================\n`;
-  text += `           CYBERSHIELD COMMAND ACADEMY - STUDY NOTE COMPILATION     \n`;
+  text += `           CYBERSHIELD LEARNING CENTER - STUDY NOTE COMPILATION     \n`;
   text += `====================================================================\n\n`;
 
   notes.forEach((n, idx) => {
@@ -2132,7 +2132,7 @@ window.renderDiscussionsSubview = function() {
   });
 
   // Calculate user rank
-  let userRank = "ACADEMY CADET";
+  let userRank = "LEARNING CENTER CADET";
   let rankColor = "var(--text-muted)";
   if (certCount >= 4) {
     userRank = "CHIEF SECURITY ARCHITECT";
@@ -2283,7 +2283,7 @@ window.renderDiscussionsSubview = function() {
         <div class="grid-card" style="padding: 18px 20px; background: rgba(3,7,18,0.4); border-color: rgba(6,182,212,0.1); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
           <div>
             <h2 class="font-display" style="font-size: 18px; font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 8px; text-shadow: 0 0 10px var(--cyan-glow);">
-              <span class="text-cyan">ACADEMY</span> PEER REGISTRY
+              <span class="text-cyan">LEARNING CENTER</span> PEER REGISTRY
             </h2>
             <p style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Cooperate with active security personnel & students on virtual range exercises.</p>
           </div>
@@ -2778,7 +2778,7 @@ window.submitDiscussionThread = function() {
 
   // Update cooldown state
   discussionsState.lastPostTime = Date.now();
-  window.showNotification('Topic published successfully on the Academy board.', 'success');
+  window.showNotification('Topic published successfully on the CyberShield board.', 'success');
   
   // Auto-Moderation: Bot Auto Response simulation if certain trigger keywords are detected
   if (unifiedText.includes('ransomware') || unifiedText.includes('virus') || unifiedText.includes('malware')) {
@@ -2790,7 +2790,7 @@ window.submitDiscussionThread = function() {
           id: "rep_bot_" + Date.now(),
           user: "SOC_AUTO_MOD (Security Bot)",
           avatar: "🤖",
-          content: "⚠️ <b>System Advisory:</b> This thread mentions active software threat structures (Malware/Virus/Ransomware). Please be advised that execution of hostile binaries must strictly take place inside completely isolated sandbox containers. Do not upload actual credentials, keys, or proprietary malware headers to the public Academy forum.",
+          content: "⚠️ <b>System Advisory:</b> This thread mentions active software threat structures (Malware/Virus/Ransomware). Please be advised that execution of hostile binaries must strictly take place inside completely isolated sandbox containers. Do not upload actual credentials, keys, or proprietary malware headers to the public Learning Center forum.",
           likes: 5,
           helpfulCount: 2,
           timestamp: new Date().toISOString(),
@@ -2807,12 +2807,12 @@ window.submitDiscussionThread = function() {
 
 // Delete a thread
 window.deleteDiscussionThread = function(threadId) {
-  if (!confirm('Are you absolutely sure you want to shred this thread entry from the academic registry? This operation is irreversible.')) return;
+  if (!confirm('Are you absolutely sure you want to shred this thread entry from the security registry? This operation is irreversible.')) return;
   
   const list = getDiscussions();
   const filtered = list.filter(d => d.id !== threadId);
   saveDiscussions(filtered);
-  window.showNotification('Thread shredded from local academy cache.', 'success');
+  window.showNotification('Thread shredded from local forum cache.', 'success');
   window.renderDiscussionsSubview();
 };
 
@@ -3412,11 +3412,11 @@ window.simulateRealtimeActivity = function() {
 // ============================================================================
 
 window.getStudentName = function() {
-  return localStorage.getItem('cybershield_student_name') || 'AGENT SOWNDHAR P';
+  return localStorage.getItem('cybershield_student_name') || 'GUEST USER';
 };
 
 window.setStudentName = function(name) {
-  const sanitized = name.trim() || 'AGENT SOWNDHAR P';
+  const sanitized = name.trim() || 'GUEST USER';
   localStorage.setItem('cybershield_student_name', sanitized);
   
   const certInput = document.getElementById('cert-student-name');
@@ -3510,7 +3510,7 @@ window.renderCertificatesSubview = function() {
         </div>
         
         <div class="grid-card shadow-glow" style="padding: 16px 20px; background: rgba(3, 7, 18, 0.4); border-color: rgba(245, 158, 11, 0.15); border-radius: 8px;">
-          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">ACADEMY LEVEL</span>
+          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase;">LEARNING CENTER LEVEL</span>
           <h4 style="font-size: 22px; font-weight: 800; color: #fbbf24; margin-top: 8px; text-transform: uppercase;">
             ${earnedCount === 10 ? 'Elite SOC Master' : earnedCount >= 6 ? 'Senior Operator' : earnedCount >= 3 ? 'Operational Specialist' : 'Field Cadet'}
           </h4>
@@ -3565,7 +3565,7 @@ window.updateRegistryThumbnails = function() {
             <div style="position: absolute; top:0; left:0; width:100%; height:100%; background-image: radial-gradient(circle at 50% 50%, rgba(245,158,11,0.02) 0%, transparent 80%);"></div>
             
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-family: var(--font-mono); font-size: 7px; color: #fbbf24; font-weight: 700; letter-spacing: 1px;">CYBERSHIELD COMMAND ACADEMY</span>
+              <span style="font-family: var(--font-mono); font-size: 7px; color: #fbbf24; font-weight: 700; letter-spacing: 1px;">CYBERSHIELD LEARNING CENTER</span>
               <span style="font-family: var(--font-mono); font-size: 5px; color: var(--text-muted);">${certId}</span>
             </div>
 
@@ -3692,8 +3692,11 @@ window.updateRegistryThumbnails = function() {
 };
 
 window.generateCertificate = function(bookId, bookTitle) {
+  // Store the active certificate's book ID on the window object so other controls like downloadCertificatePDF can reference it
+  window.activeCertBookId = bookId;
+  
   // Retrieve persistent student name
-  const currentName = window.getStudentName() || "AGENT CODENAME";
+  const currentName = window.getStudentName() || "GUEST USER";
   
   // Render full modal overlay
   let overlay = document.getElementById('certificate-modal-overlay');
@@ -3763,13 +3766,13 @@ window.generateCertificate = function(bookId, bookTitle) {
           <div style="display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:28px;">
             <div style="display:flex; align-items:center; gap:10px;">
               <i data-lucide="shield-check" style="width:28px; height:28px; color:#d4af37; filter: drop-shadow(0 0 8px rgba(212,175,55,0.25));"></i>
-              <span style="font-family:var(--font-mono); font-size:14px; font-weight:800; color:#d4af37; letter-spacing:4px; text-transform:uppercase;">CYBERSHIELD COMMAND ACADEMY</span>
+              <span style="font-family:var(--font-mono); font-size:14px; font-weight:800; color:#d4af37; letter-spacing:4px; text-transform:uppercase;">CYBERSHIELD LEARNING CENTER</span>
             </div>
             <div style="width: 180px; height: 1px; background: linear-gradient(90deg, transparent, #d4af37, transparent);"></div>
           </div>
 
           <!-- Primary Declarations -->
-          <span style="font-family:var(--font-mono); font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:3px; display:block; margin-bottom:16px;">SOC-COMPLIANCE CREDENTIAL REPORT // LEVEL 1 SECURE OPERATIVE</span>
+          <span style="font-family:var(--font-mono); font-size:10px; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:3px; display:block; margin-bottom:16px;">SOC-COMPLIANCE CREDENTIAL REPORT // LEVEL 1 SECURE MEMBER</span>
           
           <h1 style="font-family:var(--font-sans); font-size:18px; font-weight:300; color:#ffffff; margin-bottom:24px; text-transform:uppercase; letter-spacing:2px; font-style:italic;">This official record declares that</h1>
 
@@ -3886,12 +3889,12 @@ window.closeCertificateModal = function() {
 window.updateCertViewerName = function(newName) {
   // Sync globally to localStorage
   const trimmed = newName.trim();
-  window.setStudentName(trimmed || "AGENT CODENAME");
+  window.setStudentName(trimmed || "GUEST USER");
   
   // Sync the viewer name in real-time
   const viewer = document.getElementById('cert-viewer-name');
   if (viewer) {
-    viewer.textContent = (trimmed || "AGENT CODENAME").toUpperCase();
+    viewer.textContent = (trimmed || "GUEST USER").toUpperCase();
   }
 };
 
@@ -3959,6 +3962,8 @@ window.downloadCertificatePDF = function() {
   const stage = document.getElementById('print-certificate-stage');
   if (!stage) return;
 
+  const bookId = window.activeCertBookId || 'curriculum';
+
   // We offer a high-fidelity standalone downloadable self-contained verifiable HTML format.
   // This layout prints perfectly to PDF from any browser or device (A4 landscape) and works completely offline!
   const htmlDoc = `
@@ -4023,7 +4028,7 @@ window.downloadCertificatePDF = function() {
 };
 
 window.shareCertificate = function(certId, bookTitle) {
-  const shareText = `Mastery Verified! I completed the "${bookTitle}" program and earned my official CyberShield Command Academy certification. ID: ${certId}`;
+  const shareText = `Mastery Verified! I completed the "${bookTitle}" program and earned my official CyberShield Learning Center certification. ID: ${certId}`;
   
   if (navigator.share) {
     navigator.share({
