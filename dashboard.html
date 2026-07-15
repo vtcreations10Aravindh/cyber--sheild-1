@@ -102,6 +102,10 @@
             <i data-lucide="eye-off"></i>
             <span>Steganography Detector</span>
           </a>
+          <a href="#" class="nav-item" data-target="phishing-detection">
+            <i data-lucide="scan-face"></i>
+            <span>Phishing Detection Tool</span>
+          </a>
 
           <div class="nav-category-header">PASSPHRASE LAB</div>
           <a href="#" class="nav-item" data-target="password-center">
@@ -1330,14 +1334,116 @@
                 <!-- Right: QR Generator & Output -->
                 <div class="qr-generator-pane" style="display: flex; flex-direction: column; gap: 16px;">
                   <h4 class="sub-pane-title">SAFE QR CODE GENERATOR</h4>
-                  <p style="font-size:12px; color: var(--text-secondary);">Create safe corporate QR code nodes directly encoded with high security parameters.</p>
-                  <div class="form-group">
-                    <input type="url" id="qr-gen-input" class="form-input" style="width: 100%;" placeholder="Enter target URL (e.g. https://google.com)" />
+                  <p style="font-size:12px; color: var(--text-secondary);">Create safe corporate QR code nodes with customizable size and error correction parameters.</p>
+                  
+                  <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div>
+                      <label style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">QR PAYLOAD TYPE</label>
+                      <select id="qr-gen-type" class="form-input" style="width: 100%;" onchange="onQrTypeChange()">
+                        <option value="url">URL / Hyperlink</option>
+                        <option value="text">Plain Text</option>
+                        <option value="email">Email Address</option>
+                        <option value="phone">Phone Number</option>
+                        <option value="sms">SMS Message</option>
+                        <option value="wifi">WiFi Network</option>
+                        <option value="vcard">Contact Card (vCard)</option>
+                        <option value="geo">Geo Location Coordinates</option>
+                        <option value="crypto">Crypto Wallet Address</option>
+                      </select>
+                    </div>
+
+                    <!-- Dynamic Payload Fields -->
+                    <div id="qr-field-url" class="qr-payload-fields">
+                      <input type="url" id="qr-input-url" class="form-input" style="width: 100%;" placeholder="Enter target URL (e.g. https://google.com)" value="https://google.com" />
+                    </div>
+                    
+                    <div id="qr-field-text" class="qr-payload-fields" style="display: none;">
+                      <textarea id="qr-input-text" class="form-input" style="width: 100%; min-height: 60px;" placeholder="Enter plain text payload..."></textarea>
+                    </div>
+
+                    <div id="qr-field-email" class="qr-payload-fields" style="display: none; display: flex; flex-direction: column; gap: 6px;">
+                      <input type="email" id="qr-input-email-to" class="form-input" style="width: 100%;" placeholder="Recipient email (e.g. admin@firm.com)" />
+                      <input type="text" id="qr-input-email-subject" class="form-input" style="width: 100%;" placeholder="Email subject line" />
+                      <textarea id="qr-input-email-body" class="form-input" style="width: 100%; min-height: 45px;" placeholder="Email body content"></textarea>
+                    </div>
+
+                    <div id="qr-field-phone" class="qr-payload-fields" style="display: none;">
+                      <input type="tel" id="qr-input-phone" class="form-input" style="width: 100%;" placeholder="Telephone number (e.g. +15550199)" />
+                    </div>
+
+                    <div id="qr-field-sms" class="qr-payload-fields" style="display: none; display: flex; flex-direction: column; gap: 6px;">
+                      <input type="tel" id="qr-input-sms-phone" class="form-input" style="width: 100%;" placeholder="SMS recipient phone number" />
+                      <textarea id="qr-input-sms-body" class="form-input" style="width: 100%; min-height: 45px;" placeholder="SMS body text"></textarea>
+                    </div>
+
+                    <div id="qr-field-wifi" class="qr-payload-fields" style="display: none; display: flex; flex-direction: column; gap: 6px;">
+                      <input type="text" id="qr-input-wifi-ssid" class="form-input" style="width: 100%;" placeholder="SSID / Network Name" />
+                      <input type="text" id="qr-input-wifi-pass" class="form-input" style="width: 100%;" placeholder="WiFi Password (if encrypted)" />
+                      <select id="qr-input-wifi-encryption" class="form-input" style="width: 100%;">
+                        <option value="WPA">WPA/WPA2/WPA3</option>
+                        <option value="WEP">WEP (Insecure)</option>
+                        <option value="nopass">Unencrypted (Open Network)</option>
+                      </select>
+                    </div>
+
+                    <div id="qr-field-vcard" class="qr-payload-fields" style="display: none; display: flex; flex-direction: column; gap: 6px;">
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                        <input type="text" id="qr-input-vcard-first" class="form-input" placeholder="First Name" />
+                        <input type="text" id="qr-input-vcard-last" class="form-input" placeholder="Last Name" />
+                      </div>
+                      <input type="text" id="qr-input-vcard-org" class="form-input" placeholder="Organization" />
+                      <input type="tel" id="qr-input-vcard-phone" class="form-input" placeholder="Phone Number" />
+                      <input type="email" id="qr-input-vcard-email" class="form-input" placeholder="Email Address" />
+                      <input type="url" id="qr-input-vcard-url" class="form-input" placeholder="Website URL" />
+                    </div>
+
+                    <div id="qr-field-geo" class="qr-payload-fields" style="display: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                      <input type="text" id="qr-input-geo-lat" class="form-input" placeholder="Latitude (e.g. 37.7749)" />
+                      <input type="text" id="qr-input-geo-lon" class="form-input" placeholder="Longitude (e.g. -122.4194)" />
+                    </div>
+
+                    <div id="qr-field-crypto" class="qr-payload-fields" style="display: none; display: flex; flex-direction: column; gap: 6px;">
+                      <input type="text" id="qr-input-crypto-address" class="form-input" style="width: 100%;" placeholder="Wallet Address (e.g. 1A1zP...)" />
+                      <select id="qr-input-crypto-type" class="form-input" style="width: 100%;">
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="solana">Solana (SOL)</option>
+                        <option value="usdt">Tether (USDT)</option>
+                      </select>
+                    </div>
+
+                    <!-- Custom Sizing and Error Correction -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                      <div>
+                        <label style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">RESOLUTION</label>
+                        <select id="qr-gen-size" class="form-input" style="width: 100%;">
+                          <option value="150">150 x 150 px</option>
+                          <option value="250" selected>250 x 250 px</option>
+                          <option value="350">350 x 350 px</option>
+                          <option value="500">500 x 500 px</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="font-size: 10px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">ERROR CORRECTION</label>
+                        <select id="qr-gen-ecc" class="form-input" style="width: 100%;">
+                          <option value="L">Low (7% recovery)</option>
+                          <option value="M" selected>Medium (15% recovery)</option>
+                          <option value="Q">Quartile (25% recovery)</option>
+                          <option value="H">High (30% recovery)</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
+
                   <button class="btn-primary" onclick="generateSecureQR()">Generate Secure QR Node</button>
                   <div id="qr-generated-output" style="display:none; align-items:center; justify-content:center; flex-direction:column; gap:12px; margin-top:16px; padding:16px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05);">
                     <img id="qr-generated-img" style="width:140px; height:140px; background:#fff; padding:6px; border-radius:4px;" alt="Secure QR" referrerPolicy="no-referrer" />
-                    <a href="#" id="qr-download-link" class="btn-secondary" style="font-size:11px; padding:6px 12px; text-decoration:none;" download="secured_qr_node.png"><i data-lucide="download"></i> Download QR Node</a>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; width:100%;">
+                      <a href="#" id="qr-download-link-png" class="btn-secondary" style="font-size:11px; padding:6px 10px; text-decoration:none;" download="secured_qr_node.png"><i data-lucide="download"></i> PNG</a>
+                      <a href="#" id="qr-download-link-svg" class="btn-secondary" style="font-size:11px; padding:6px 10px; text-decoration:none;" download="secured_qr_node.svg"><i data-lucide="download"></i> SVG</a>
+                      <button class="btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="copyQrImageToClipboard()"><i data-lucide="copy"></i> Copy</button>
+                      <button class="btn-secondary" style="font-size:11px; padding:6px 10px;" onclick="shareSecureQR()"><i data-lucide="share-2"></i> Share</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1421,7 +1527,7 @@
                 <i data-lucide="upload-cloud" class="upload-icon"></i>
                 <p class="upload-main-text">Drag & Drop file to sandbox, or <span class="highlight-cyan cursor-pointer">browse terminal storage</span></p>
                 <p class="upload-sub-text">Supported: exe, pdf, docx, xlsx, xlsm, zip, png (Max 50MB) - Fully client-side</p>
-                <input type="file" id="sandbox-file-picker" style="display: none;" />
+                <input type="file" id="sandbox-file-picker" style="display: none;" accept="image/*,application/pdf,application/zip,application/x-zip-compressed,application/octet-stream,.exe,.doc,.docx,.xls,.xlsx,.xlsm,.pdf,.zip" multiple />
               </div>
 
               <div class="sandbox-reports" id="sandbox-file-reports">
@@ -1539,6 +1645,76 @@
                 </div>
               </div>
 
+            </div>
+          </section>
+
+          <!-- UNIVERSAL PHISHING DETECTION HUB -->
+          <section id="tab-phishing-detection" class="content-section">
+            <h2 class="section-heading"><i data-lucide="scan-face" class="text-cyan header-inline-icon"></i> Advanced Phishing Detection Tool</h2>
+            <p class="section-desc">Interrogate suspicious emails, URLs, files, or visual screenshots through our Unified Machine-Learning Phishing Detection Engine. Identify impersonated corporate login gateways, social-engineering hooks, typosquatted brand headers, and auto-execute macro vectors.</p>
+            
+            <div class="grid-card shadow-glow">
+              <div class="card-corner corner-tl"></div>
+              <div class="card-corner corner-tr"></div>
+              <div class="card-corner corner-bl"></div>
+              <div class="card-corner corner-br"></div>
+
+              <div class="phishing-lab-layout" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px;">
+                <!-- Left Column: Controls & Inputs -->
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                  <h4 class="sub-pane-title">PHISHING RISK VECTORED INTAKE</h4>
+                  
+                  <div class="form-group" style="display: flex; gap: 12px; align-items: center;">
+                    <div style="flex: 1;">
+                      <label for="phishing-target-type" style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px; font-family: var(--font-mono);">ANALYSIS TARGET TYPE</label>
+                      <select id="phishing-target-type" class="scanner-input" onchange="togglePhishingInputType()" style="width: 100%; background: rgba(3,7,18,0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 10px; color: #fff; font-family: var(--font-sans); font-size: 13px;">
+                        <option value="email">Suspicious Email String</option>
+                        <option value="url">Impersonating Lookalike URL</option>
+                        <option value="file">Scripts / Macros / Payload Code</option>
+                        <option value="image">Form Screenshot / SSO Cloned Visual</option>
+                      </select>
+                    </div>
+                    <div style="margin-top: 18px;">
+                      <button class="btn-secondary" onclick="loadSamplePhishingVector()" style="padding: 10px 14px; font-size: 12px; height: 38px;"><i data-lucide="sparkles" style="width:14px; height:14px; margin-right:4px;"></i> Load Sample</button>
+                    </div>
+                  </div>
+
+                  <!-- Text Input Container -->
+                  <div id="phishing-text-input-container">
+                    <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px; font-family: var(--font-mono);">VECTOR CONTENT STRING</label>
+                    <textarea class="scanner-textarea" id="phishing-universal-input" style="height: 180px; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5;" placeholder="Paste email text, URL link, or raw downloader script payload here..."></textarea>
+                  </div>
+
+                  <!-- Image Input Container -->
+                  <div id="phishing-image-input-container" style="display: none; flex-direction: column; gap: 12px;">
+                    <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px; font-family: var(--font-mono);">SCREENSHOT METRIC UPLOAD</label>
+                    <div class="file-drop-area" id="phishing-image-drop-zone">
+                      <i data-lucide="scan-face" class="upload-icon"></i>
+                      <p class="upload-main-text">Drop visual capture, or <span class="highlight-cyan cursor-pointer">browse screenshots</span></p>
+                      <p class="upload-sub-text">Scanned visually with vision-processing OCR models</p>
+                      <input type="file" id="phishing-image-file-picker" style="display: none;" accept="image/*" />
+                    </div>
+
+                    <div id="phishing-image-preview-box" style="display: none; text-align: center; padding: 16px; background: rgba(3,7,18,0.4); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); position: relative;">
+                      <img id="phishing-image-preview" style="max-height: 160px; max-width: 100%; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);" alt="Phishing Preview" referrerPolicy="no-referrer" />
+                      <p id="phishing-image-filename" class="font-mono" style="font-size: 11px; margin-top: 10px; color: var(--text-muted);"></p>
+                    </div>
+                  </div>
+
+                  <button class="btn-primary" onclick="analyzePhishingUniversal()" style="padding: 12px; font-weight: 700;"><i data-lucide="shield-alert" style="width:16px; height:16px; margin-right:6px;"></i> Interrogate Risk Parameters</button>
+                </div>
+
+                <!-- Right Column: Interactive Report panel -->
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <h4 class="sub-pane-title">INTERCEPT INTELLIGENCE BRIEFING</h4>
+                  <div id="phishing-universal-results" class="scanner-results-pane" style="height: 100%; min-height: 400px; padding: 20px; background: rgba(3,7,18,0.3); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; overflow-y: auto;">
+                    <div class="sandbox-blankslate">
+                      <i data-lucide="fingerprint" class="blankslate-icon text-muted" style="width: 48px; height: 48px; opacity: 0.3;"></i>
+                      <p class="blankslate-text">Submit an asset vector (email body, lookalike domain, macro script, or SSO login visual) to evaluate zero-day threats and download detailed technical intelligence reports.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 

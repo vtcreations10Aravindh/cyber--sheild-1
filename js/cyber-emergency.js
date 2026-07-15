@@ -2343,7 +2343,7 @@ function updateAPIStatusWidget() {
         { name: "SafeBrowsing Gateway", active: status.safebrowsing }
       ];
 
-      container.innerHTML = keys.map(k => `
+      let html = keys.map(k => `
         <div class="api-status-item">
           <span>${k.name}</span>
           <span style="display:flex; align-items:center; gap:6px;">
@@ -2352,6 +2352,29 @@ function updateAPIStatusWidget() {
           </span>
         </div>
       `).join("");
+
+      const missingKeys = [];
+      if (!status.gemini) missingKeys.push("GEMINI_API_KEY");
+      if (!status.virustotal) missingKeys.push("VIRUSTOTAL_API_KEY");
+      if (!status.abuseipdb) missingKeys.push("ABUSEIPDB_API_KEY");
+      if (!status.urlscan) missingKeys.push("URLSCAN_API_KEY");
+      if (!status.safebrowsing) missingKeys.push("GOOGLE_SAFE_BROWSING_API_KEY");
+
+      if (missingKeys.length > 0) {
+        html += `
+          <div style="margin-top: 14px; padding: 12px; border: 1px solid rgba(234, 179, 8, 0.2); background: rgba(234, 179, 8, 0.05); border-radius: 6px; font-size: 11px; line-height: 1.45;">
+            <span style="color: #eab308; font-weight: 700; display: block; margin-bottom: 5px; letter-spacing: 0.5px;">⚠️ SECURE ADMIN CONFIGURATION REQUIRED</span>
+            <span style="color: var(--text-secondary); display: block; margin-bottom: 6px;">
+              The platform is running in secure fallback mode. To activate high-accuracy SOC threat detection pipelines, please append the following environment variables in your backend <strong>.env</strong> file:
+            </span>
+            <code style="display: block; padding: 6px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; color: var(--cyan-bright); font-family: var(--font-mono); word-break: break-all; font-size: 10px;">
+              ${missingKeys.join("<br/>")}
+            </code>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
     })
     .catch(() => {
       container.innerHTML = `<div style="font-size:11px; color:var(--rose-bright);">Error querying gateway API status</div>`;
